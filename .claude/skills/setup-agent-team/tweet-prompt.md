@@ -21,8 +21,6 @@ Spawn lets anyone spin up an AI coding agent (Claude, Codex, etc.) on a cheap cl
   - "Spawn now works with any git URL, not just GitHub. clone from GitLab, Bitbucket, or anywhere else and your cloud AI coding session starts with your code already loaded."
   - "new: spawn export lets you capture your Claude coding session on a cloud VM and push it to GitHub. write code in the cloud, ship it to a repo."
 
-Do not treat the platform's 280 char limit as a goal. It's a ceiling. If your draft is pushing it, you're writing marketing copy, not a tweet.
-
 ## Past Tweet Decisions
 
 Learn from what was previously approved, edited, or skipped:
@@ -92,6 +90,6 @@ Or if nothing tweet-worthy:
 ## Rules
 
 - Pick exactly 1 tweet per cycle. No ties, no "here are 3 options."
-- Must fit in a tweet (under the platform limit). Shorter is better. Trim before you submit.
+- Shorter is better. Trim before you submit.
 - Do NOT use tools. Your only input is the git data above.
 - A "no tweet" result is perfectly fine, quality over quantity.
