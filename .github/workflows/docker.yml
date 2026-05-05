@@ -41,3 +41,20 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ghcr.io/openrouterteam/spawn-${{ matrix.agent }}:latest
+
+      # Verify the pushed manifest actually contains both architectures.
+      # Catches regressions where setup-qemu/buildx gets dropped or the
+      # platforms flag gets lost in a future refactor.
+      - name: Verify multi-arch manifest
+        run: |
+          set -euo pipefail
+          image="ghcr.io/openrouterteam/spawn-${{ matrix.agent }}:latest"
+          echo "Inspecting $image"
+          manifest="$(docker buildx imagetools inspect "$image")"
+          echo "$manifest"
+          for arch in linux/amd64 linux/arm64; do
+            if ! grep -qF "$arch" <<< "$manifest"; then
+              echo "::error::$image is missing $arch in the published manifest"
+              exit 1
+            fi
+          done
