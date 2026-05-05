@@ -90,8 +90,16 @@ describe("doApi 401 OAuth recovery", () => {
     state.token = "expired-token";
     let callCount = 0;
     globalThis.fetch = mock((url: string | URL | Request) => {
-      callCount++;
       const urlStr = String(url);
+      // Ignore unrelated fetch calls (e.g. telemetry) that may fire in parallel
+      if (!urlStr.includes("digitalocean")) {
+        return Promise.resolve(
+          new Response("", {
+            status: 200,
+          }),
+        );
+      }
+      callCount++;
       // First call: the actual API call returning 401
       if (callCount === 1) {
         return Promise.resolve(

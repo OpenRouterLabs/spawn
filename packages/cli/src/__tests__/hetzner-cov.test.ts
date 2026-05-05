@@ -586,7 +586,16 @@ describe("hetzner/createServer", () => {
       },
     };
     let callCount = 0;
-    global.fetch = mock(() => {
+    global.fetch = mock((url: string | URL | Request) => {
+      const urlStr = String(url);
+      // Ignore unrelated fetch calls (e.g. telemetry) that may fire in parallel
+      if (!urlStr.includes("hetzner")) {
+        return Promise.resolve(
+          new Response("", {
+            status: 200,
+          }),
+        );
+      }
       callCount++;
       if (callCount <= 1) {
         // Token validation
