@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tryCatch } from "@openrouter/spawn-shared";
 import { mockClackPrompts } from "./test-helpers";
@@ -18,8 +18,16 @@ mockClackPrompts({
 
 // ── Import after @clack/prompts mock ────────────────────────────────────────
 
-const { discoverSshKeys, generateSshKey, getSshFingerprint, ensureSshKeys, getSshKeyOpts, verifyKeyPair, _resetCache } =
-  await import("../shared/ssh-keys");
+const {
+  discoverSshKeys,
+  generateSshKey,
+  getSshFingerprint,
+  ensureSshKeys,
+  getSshKeyOpts,
+  verifyKeyPair,
+  repairPubFromPriv,
+  _resetCache,
+} = await import("../shared/ssh-keys");
 
 // ─── Temp dir helpers ───────────────────────────────────────────────────────
 
@@ -229,16 +237,41 @@ describe("discoverSshKeys", () => {
     expect(keys[0].pubPath).toContain("id_ed25519.pub");
   });
 
-  it("skips pairs whose .pub does not match the local private key", () => {
-    createFakeKeyPair("id_ed25519", "ed25519");
-    const spawnSpy = spyOn(Bun, "spawnSync").mockImplementation(
-      smartSshKeygenMock({
-        mismatch: true,
-      }),
-    );
+  it("auto-repairs pairs whose .pub does not match the local private key", () => {
+    const { pubPath } = createFakeKeyPair("id_ed25519", "ed25519");
+    const staleContents = readFileSync(pubPath, "utf-8");
+    const derivedContents = "ssh-ed25519 AAAADERIVED spawn\n";
+
+    const spawnSpy = spyOn(Bun, "spawnSync").mockImplementation((args: string[]) => {
+      if (args[1] === "-y") {
+        // ssh-keygen -y derives the *correct* pub from the priv
+        return makeSyncResult(derivedContents);
+      }
+      if (args.includes("-E") && args[args.indexOf("-E") + 1] === "md5") {
+        return sshKeygenMd5Result();
+      }
+      return sshKeygenLfResult("ED25519");
+    });
+
     const keys = discoverSshKeys();
     spawnSpy.mockRestore();
-    expect(keys).toEqual([]);
+
+    // Pair is returned, not skipped
+    expect(keys).toHaveLength(1);
+    expect(keys[0].name).toBe("id_ed25519");
+    expect(keys[0].pubPath).toBe(pubPath);
+
+    // .pub has been rewritten with the derived contents
+    expect(readFileSync(pubPath, "utf-8")).toBe(derivedContents);
+
+    // The stale contents are preserved in a backup file
+    const sshDir = join(tmpDir, ".ssh");
+    const files = readdirSync(sshDir);
+    const backup = files.find((f) => f.startsWith("id_ed25519.pub.spawn-backup-"));
+    expect(backup).toBeDefined();
+    if (backup) {
+      expect(readFileSync(join(sshDir, backup), "utf-8")).toBe(staleContents);
+    }
   });
 
   it("skips pairs that ssh-keygen cannot derive (e.g. passphrase-protected)", () => {
@@ -416,6 +449,40 @@ describe("verifyKeyPair", () => {
     const result = verifyKeyPair(privPath, pubPath);
     spawnSpy.mockRestore();
     expect(result).toBe("unverifiable");
+  });
+});
+
+// ─── repairPubFromPriv ──────────────────────────────────────────────────────
+
+describe("repairPubFromPriv", () => {
+  it("rewrites the .pub from the derived key and backs up the original", () => {
+    const { privPath, pubPath } = createFakeKeyPair("id_ed25519", "ed25519");
+    const stale = readFileSync(pubPath, "utf-8");
+    const derived = "ssh-ed25519 AAAADERIVEDCONTENT spawn\n";
+    const spawnSpy = spyOn(Bun, "spawnSync").mockReturnValue(makeSyncResult(derived));
+
+    const backupPath = repairPubFromPriv(privPath, pubPath);
+    spawnSpy.mockRestore();
+
+    expect(backupPath).not.toBeNull();
+    expect(backupPath).toContain(".spawn-backup-");
+    expect(readFileSync(pubPath, "utf-8")).toBe(derived);
+    if (backupPath) {
+      expect(readFileSync(backupPath, "utf-8")).toBe(stale);
+    }
+  });
+
+  it("returns null when the private key cannot be derived (e.g. passphrase)", () => {
+    const { privPath, pubPath } = createFakeKeyPair("id_ed25519", "ed25519");
+    const stale = readFileSync(pubPath, "utf-8");
+    const spawnSpy = spyOn(Bun, "spawnSync").mockReturnValue(makeSyncResult("", 1));
+
+    const backupPath = repairPubFromPriv(privPath, pubPath);
+    spawnSpy.mockRestore();
+
+    expect(backupPath).toBeNull();
+    // .pub is untouched, no backup created
+    expect(readFileSync(pubPath, "utf-8")).toBe(stale);
   });
 });
 

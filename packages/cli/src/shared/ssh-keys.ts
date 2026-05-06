@@ -1,6 +1,6 @@
 // shared/ssh-keys.ts — SSH key discovery, selection, and generation
 
-import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { getSshDir } from "./paths.js";
 import { isFileError, tryCatch, tryCatchIf, unwrapOr } from "./result.js";
 import { logInfo, logStep, logWarn } from "./ui.js";
@@ -52,19 +52,27 @@ export function discoverSshKeys(): SshKeyPair[] {
       continue;
     }
 
-    // Skip pairs whose public key doesn't actually pair with the private key.
-    // Without this check, the .pub gets registered with the cloud provider but
+    // Auto-repair pairs whose public key doesn't pair with the private key.
+    // Without this, the stale .pub gets registered with the cloud provider and
     // SSH fails with "Permission denied (publickey)" because the local .priv
-    // can't prove ownership of that .pub. Passphrase-protected and otherwise
-    // unverifiable keys are skipped silently — BatchMode SSH can't use them.
+    // can't prove ownership of that .pub. The .priv is authoritative — any .pub
+    // that doesn't derive from it is wrong by definition, so we back up the
+    // stale file and rewrite .pub from the derived key.
+    //
+    // Passphrase-protected and otherwise unverifiable keys are skipped silently
+    // — BatchMode SSH can't use them without an active ssh-agent anyway.
     const verification = verifyKeyPair(privPath, pubPath);
     if (verification === "mismatch") {
-      logWarn(
-        `SSH key '${baseName}' skipped: ${pubPath} does not pair with the local private key. Replace the .pub with one derived from the matching private key, or run 'ssh-keygen -t ed25519' to generate a fresh pair.`,
-      );
-      continue;
-    }
-    if (verification === "unverifiable") {
+      const repaired = repairPubFromPriv(privPath, pubPath);
+      if (!repaired) {
+        logWarn(
+          `SSH key '${baseName}' skipped: ${pubPath} does not pair with the local private key and could not be repaired automatically.`,
+        );
+        continue;
+      }
+      logInfo(`Repaired ${pubPath} (stale public key replaced; original saved as ${repaired}).`);
+      // fall through — pair is now valid
+    } else if (verification === "unverifiable") {
       continue;
     }
 
@@ -118,18 +126,12 @@ function pubKeyCore(text: string): string {
 }
 
 /**
- * Verify that a private/public keypair on disk are actually paired:
- * derive the public key from the private key and compare to the `.pub`.
- *
- * Returns:
- *   - "match"       — derived public matches `.pub`
- *   - "mismatch"    — files exist but do NOT pair (silent-failure source)
- *   - "unverifiable" — passphrase-protected, corrupt, or otherwise can't derive
- *                     (skip silently — spawn's BatchMode SSH can't use these
- *                     anyway unless the user has them in ssh-agent)
+ * Derive the public key text from a private key via `ssh-keygen -y`.
+ * Returns the raw stdout (e.g. `"ssh-ed25519 AAAA... comment\n"`) on success,
+ * or "" when the private key is passphrase-protected, corrupt, or missing.
  */
-export function verifyKeyPair(privPath: string, pubPath: string): "match" | "mismatch" | "unverifiable" {
-  const derived = unwrapOr(
+function derivePubFromPriv(privPath: string): string {
+  return unwrapOr(
     tryCatch(() => {
       const result = Bun.spawnSync(
         [
@@ -155,8 +157,21 @@ export function verifyKeyPair(privPath: string, pubPath: string): "match" | "mis
     }),
     "",
   );
+}
 
-  const derivedCore = pubKeyCore(derived);
+/**
+ * Verify that a private/public keypair on disk are actually paired:
+ * derive the public key from the private key and compare to the `.pub`.
+ *
+ * Returns:
+ *   - "match"       — derived public matches `.pub`
+ *   - "mismatch"    — files exist but do NOT pair (silent-failure source)
+ *   - "unverifiable" — passphrase-protected, corrupt, or otherwise can't derive
+ *                     (skip silently — spawn's BatchMode SSH can't use these
+ *                     anyway unless the user has them in ssh-agent)
+ */
+export function verifyKeyPair(privPath: string, pubPath: string): "match" | "mismatch" | "unverifiable" {
+  const derivedCore = pubKeyCore(derivePubFromPriv(privPath));
   if (!derivedCore) {
     return "unverifiable";
   }
@@ -171,6 +186,36 @@ export function verifyKeyPair(privPath: string, pubPath: string): "match" | "mis
   }
 
   return derivedCore === pubCore ? "match" : "mismatch";
+}
+
+/**
+ * Repair a stale `.pub` file by rewriting it from the matching private key.
+ *
+ * The original `.pub` is preserved as `<pubPath>.spawn-backup-<timestamp>` so
+ * the user can inspect what was replaced. Returns the backup path on success,
+ * or null if the private key couldn't be read (passphrase-protected, etc.) or
+ * the filesystem write failed.
+ *
+ * Safe because the `.priv` is authoritative: any `.pub` that doesn't derive
+ * from it is wrong by definition.
+ */
+export function repairPubFromPriv(privPath: string, pubPath: string): string | null {
+  const derived = derivePubFromPriv(privPath);
+  if (!pubKeyCore(derived)) {
+    return null;
+  }
+
+  const backupPath = `${pubPath}.spawn-backup-${Date.now()}`;
+  const result = tryCatchIf(isFileError, () => {
+    renameSync(pubPath, backupPath);
+    writeFileSync(pubPath, derived, {
+      mode: 0o644,
+    });
+  });
+  if (!result.ok) {
+    return null;
+  }
+  return backupPath;
 }
 
 /** Extract the key type from a public key file using ssh-keygen. */
