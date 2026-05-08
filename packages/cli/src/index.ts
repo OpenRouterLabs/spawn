@@ -969,12 +969,15 @@ async function main(): Promise<void> {
 
   // fast_provision experiment: if the user did NOT pass --beta or --fast,
   // bucket them on the PostHog `fast_provision` flag. The `test` variant
-  // turns on images by default; control behaves as before.
+  // turns on images + docker + sandbox by default; control behaves as before.
+  // - images:  pre-built DO marketplace images (cloud-side faster boot)
+  // - docker:  Docker CE host image on Hetzner/GCP (cloud-side faster boot)
+  // - sandbox: local agents run in a Docker container (local-side faster boot)
   // Exposure is captured for both variants so PostHog can compute conversion.
   if (!userOptedIntoBeta) {
     const variant = getFeatureFlag("fast_provision", "control");
     if (variant === "test") {
-      betaFeatures.push("images");
+      betaFeatures.push("images", "docker", "sandbox");
     }
   }
 
