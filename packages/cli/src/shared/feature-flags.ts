@@ -207,10 +207,8 @@ export function getFeatureFlag<T extends string | boolean>(key: string, fallback
  * caller is responsible for de-duping against features the user already passed.
  *
  * Kept as a pure, named export so the bundle composition is testable in
- * isolation from `main()` arg parsing. Keep this in sync with the `--fast`
- * branch in `index.ts` — both opt the user into the same speed-ups; they only
- * differ on `tarball` + `parallel`, which `--fast` adds (these aren't part of
- * the experiment because they're already on by default in most paths).
+ * isolation from `main()` arg parsing. This is the experiment surface only —
+ * unrelated to `--fast`, which is its own user-facing flag and stays as-is.
  */
 export function expandFastProvisionVariant(variant: string): readonly string[] {
   if (variant === "test") {

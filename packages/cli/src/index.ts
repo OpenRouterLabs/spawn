@@ -962,14 +962,9 @@ async function main(): Promise<void> {
       process.exit(1);
     }
   }
-  // --fast: explicit user opt-in to the full provisioning-speed stack. Kept
-  // aligned with the `fast_provision` experiment's `test` variant (images,
-  // docker, sandbox) so the explicit flag and the silent A/B exercise the same
-  // surface — plus tarball + parallel, which are speed-ups outside the
-  // experiment scope. If you change either bundle, update the other or the
-  // alignment comment in expandFastProvisionVariant().
+  // --fast implies all beta features
   if (process.env.SPAWN_FAST === "1") {
-    betaFeatures.push("tarball", "images", "parallel", "docker", "sandbox");
+    betaFeatures.push("tarball", "images", "parallel", "docker");
   }
 
   // fast_provision experiment: if the user did NOT pass --beta or --fast,
