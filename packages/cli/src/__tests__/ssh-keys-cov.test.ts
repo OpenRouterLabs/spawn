@@ -1,8 +1,5 @@
 /**
- * ssh-keys-cov.test.ts — Additional coverage for shared/ssh-keys.ts
- *
- * Covers edge cases: generateSshKey failure + race recovery,
- * getSshFingerprint empty output, discoverSshKeys with UNKNOWN type
+ * ssh-keys-cov.test.ts — Additional edge-case coverage for shared/ssh-keys.ts.
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
@@ -16,10 +13,11 @@ mockClackPrompts({
   text: mock(() => Promise.resolve("")),
 });
 
-const { discoverSshKeys, generateSshKey, getSshFingerprint, _resetCache } = await import("../shared/ssh-keys.js");
+const { discoverLegacyKeys, getSpawnKey, getSshFingerprint, _resetCache } = await import("../shared/ssh-keys.js");
 
 let tmpDir: string;
 let origHome: string | undefined;
+let stderrSpy: ReturnType<typeof spyOn>;
 
 function makeSyncResult(text: string, exitCode = 0): Bun.SyncSubprocess<"pipe", "pipe"> {
   return {
@@ -74,41 +72,37 @@ afterEach(() => {
   );
 });
 
-// Suppress stderr — restored in afterEach to avoid contaminating other tests
-let stderrSpy: ReturnType<typeof spyOn>;
-
-describe("generateSshKey race recovery", () => {
-  it("recovers when ssh-keygen fails but key was created by another process", () => {
+describe("getSpawnKey race recovery", () => {
+  it("recovers when ssh-keygen fails but key files appeared", () => {
     const sshDir = join(tmpDir, ".ssh");
     mkdirSync(sshDir, {
       recursive: true,
       mode: 0o700,
     });
-    const privPath = join(sshDir, "id_ed25519");
+    const privPath = join(sshDir, "spawn_ed25519");
     const pubPath = `${privPath}.pub`;
 
     let callCount = 0;
     const spawnSpy = spyOn(Bun, "spawnSync").mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
-        // First call: ssh-keygen -t ed25519 fails, but files appear (race)
+        // ssh-keygen "fails" but files appear (race)
         writeFileSync(privPath, "fake-priv\n", {
           mode: 0o600,
         });
         writeFileSync(pubPath, "ssh-ed25519 AAAA fake\n");
-        return makeSyncResult("", 1); // non-zero exit
+        return makeSyncResult("", 1);
       }
-      // Second call: ssh-keygen -lf for getKeyType
       return makeSyncResult("256 SHA256:abc user@host (ED25519)");
     });
 
-    const pair = generateSshKey();
+    const pair = getSpawnKey();
     spawnSpy.mockRestore();
-    expect(pair.name).toBe("id_ed25519");
+    expect(pair.name).toBe("spawn_ed25519");
     expect(existsSync(pair.privPath)).toBe(true);
   });
 
-  it("throws when ssh-keygen fails and no files created", () => {
+  it("throws when ssh-keygen fails and no files were created", () => {
     const sshDir = join(tmpDir, ".ssh");
     mkdirSync(sshDir, {
       recursive: true,
@@ -117,59 +111,52 @@ describe("generateSshKey race recovery", () => {
 
     const spawnSpy = spyOn(Bun, "spawnSync").mockReturnValue(makeSyncResult("", 1));
 
-    expect(() => generateSshKey()).toThrow("SSH key generation failed");
+    expect(() => getSpawnKey()).toThrow("Spawn SSH key generation failed");
     spawnSpy.mockRestore();
   });
 });
 
-describe("discoverSshKeys with unknown key type", () => {
-  it("labels key as UNKNOWN when ssh-keygen -lf fails (after verification passes)", () => {
+describe("discoverLegacyKeys edge cases", () => {
+  it("labels legacy key as UNKNOWN when ssh-keygen has no parenthesized type", () => {
     const sshDir = join(tmpDir, ".ssh");
     mkdirSync(sshDir, {
       recursive: true,
       mode: 0o700,
     });
-    writeFileSync(join(sshDir, "id_custom"), "fake-priv\n", {
+    writeFileSync(join(sshDir, "id_rsa"), "fake-priv\n", {
       mode: 0o600,
     });
-    writeFileSync(join(sshDir, "id_custom.pub"), "some-key AAAA fake\n");
+    writeFileSync(join(sshDir, "id_rsa.pub"), "ssh-rsa AAAA fake\n");
 
-    // verify (`-y`) succeeds with matching pub; getKeyType (`-lf`) throws
+    // verifyKeyPair → match (deriv reads pub), getKeyType → no type
     const spawnSpy = spyOn(Bun, "spawnSync").mockImplementation((args: string[]) => {
       if (args[1] === "-y") {
-        return makeSyncResult("some-key AAAA fake\n");
+        return makeSyncResult("ssh-rsa AAAA fake\n");
       }
-      throw new Error("command not found");
+      return makeSyncResult("256 SHA256:abc user@host"); // no (TYPE) suffix
     });
 
-    const keys = discoverSshKeys();
+    const keys = discoverLegacyKeys();
     spawnSpy.mockRestore();
     expect(keys).toHaveLength(1);
     expect(keys[0].type).toBe("UNKNOWN");
   });
 
-  it("labels key as UNKNOWN when ssh-keygen -lf output has no parenthesized type", () => {
+  it("skips passphrase-protected legacy keys (verifyKeyPair → unverifiable)", () => {
     const sshDir = join(tmpDir, ".ssh");
     mkdirSync(sshDir, {
       recursive: true,
       mode: 0o700,
     });
-    writeFileSync(join(sshDir, "id_weird"), "fake-priv\n", {
+    writeFileSync(join(sshDir, "id_ed25519"), "fake-priv\n", {
       mode: 0o600,
     });
-    writeFileSync(join(sshDir, "id_weird.pub"), "weird-key AAAA fake\n");
+    writeFileSync(join(sshDir, "id_ed25519.pub"), "ssh-ed25519 AAAA fake\n");
 
-    const spawnSpy = spyOn(Bun, "spawnSync").mockImplementation((args: string[]) => {
-      if (args[1] === "-y") {
-        return makeSyncResult("weird-key AAAA fake\n");
-      }
-      return makeSyncResult("256 SHA256:abc user@host"); // no (TYPE) suffix
-    });
-
-    const keys = discoverSshKeys();
+    const spawnSpy = spyOn(Bun, "spawnSync").mockReturnValue(makeSyncResult("", 1));
+    const keys = discoverLegacyKeys();
     spawnSpy.mockRestore();
-    expect(keys).toHaveLength(1);
-    expect(keys[0].type).toBe("UNKNOWN");
+    expect(keys).toEqual([]);
   });
 });
 
@@ -190,56 +177,5 @@ describe("getSshFingerprint edge cases", () => {
     const fp = getSshFingerprint("/tmp/fake.pub");
     spawnSpy.mockRestore();
     expect(fp).toBe("");
-  });
-});
-
-describe("discoverSshKeys sorting", () => {
-  it("sorts ed25519 before rsa before unknown types", () => {
-    const sshDir = join(tmpDir, ".ssh");
-    mkdirSync(sshDir, {
-      recursive: true,
-      mode: 0o700,
-    });
-    // Create 3 key pairs
-    writeFileSync(join(sshDir, "id_rsa"), "fake\n", {
-      mode: 0o600,
-    });
-    writeFileSync(join(sshDir, "id_rsa.pub"), "ssh-rsa AAAA\n");
-    writeFileSync(join(sshDir, "id_ecdsa"), "fake\n", {
-      mode: 0o600,
-    });
-    writeFileSync(join(sshDir, "id_ecdsa.pub"), "ecdsa-sha2 AAAA\n");
-    writeFileSync(join(sshDir, "id_ed25519"), "fake\n", {
-      mode: 0o600,
-    });
-    writeFileSync(join(sshDir, "id_ed25519.pub"), "ssh-ed25519 AAAA\n");
-
-    const spawnSpy = spyOn(Bun, "spawnSync").mockImplementation((args: string[]) => {
-      const path = String(args[args.length - 1]);
-      if (args[1] === "-y") {
-        // verify (`-y`) call: return the matching pub file contents from disk
-        if (path.endsWith("id_ed25519")) {
-          return makeSyncResult("ssh-ed25519 AAAA\n");
-        }
-        if (path.endsWith("id_rsa")) {
-          return makeSyncResult("ssh-rsa AAAA\n");
-        }
-        return makeSyncResult("ecdsa-sha2 AAAA\n");
-      }
-      if (path.includes("ed25519")) {
-        return makeSyncResult("256 SHA256:x (ED25519)");
-      }
-      if (path.includes("rsa")) {
-        return makeSyncResult("2048 SHA256:x (RSA)");
-      }
-      return makeSyncResult("256 SHA256:x (ECDSA)");
-    });
-
-    const keys = discoverSshKeys();
-    spawnSpy.mockRestore();
-
-    expect(keys[0].type).toBe("ED25519");
-    expect(keys[1].type).toBe("RSA");
-    expect(keys[2].type).toBe("ECDSA");
   });
 });

@@ -1,112 +1,49 @@
-// shared/ssh-keys.ts — SSH key discovery, selection, and generation
+// shared/ssh-keys.ts — Spawn-owned SSH key with legacy fallback for back-compat
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { getSshDir } from "./paths.js";
 import { isFileError, tryCatch, tryCatchIf, unwrapOr } from "./result.js";
-import { logInfo, logStep, logWarn } from "./ui.js";
+import { logInfo, logStep } from "./ui.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface SshKeyPair {
   privPath: string;
   pubPath: string;
-  /** Base name, e.g. "id_ed25519" or "work_key" */
+  /** Base name, e.g. "spawn_ed25519" or "id_rsa" */
   name: string;
   /** Key algorithm, e.g. "ED25519", "RSA" */
   type: string;
 }
 
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+/** Filename of the spawn-managed key under ~/.ssh/. */
+export const SPAWN_KEY_NAME = "spawn_ed25519";
+
+/** Default key filenames OpenSSH auto-tries; used as legacy -i fallbacks
+ * so droplets provisioned by older Spawn versions stay reachable. */
+const LEGACY_KEY_NAMES = [
+  "id_ed25519",
+  "id_rsa",
+  "id_ecdsa",
+];
+
+/** Cap the total number of -i flags to stay under a typical sshd MaxAuthTries. */
+const MAX_KEYS = 3;
+
 // ─── Module-level cache ─────────────────────────────────────────────────────
 
+let cachedSpawnKey: SshKeyPair | null = null;
 let cachedKeys: SshKeyPair[] | null = null;
 
 /** Reset the module-level cache (for testing). */
 export function _resetCache(): void {
+  cachedSpawnKey = null;
   cachedKeys = null;
 }
 
-// ─── Key Discovery ──────────────────────────────────────────────────────────
-
-/** Scan ~/.ssh/ for valid key pairs and extract key types. */
-export function discoverSshKeys(): SshKeyPair[] {
-  const sshDir = getSshDir();
-  if (!existsSync(sshDir)) {
-    return [];
-  }
-
-  const dirResult = tryCatchIf(isFileError, () => readdirSync(sshDir));
-  if (!dirResult.ok) {
-    return [];
-  }
-  const entries = dirResult.data;
-
-  const pubFiles = entries.filter((f) => f.endsWith(".pub"));
-  const pairs: SshKeyPair[] = [];
-
-  for (const pubFile of pubFiles) {
-    const baseName = pubFile.slice(0, -4); // strip ".pub"
-    const pubPath = `${sshDir}/${pubFile}`;
-    const privPath = `${sshDir}/${baseName}`;
-
-    if (!existsSync(privPath)) {
-      continue;
-    }
-
-    // Auto-repair pairs whose public key doesn't pair with the private key.
-    // Without this, the stale .pub gets registered with the cloud provider and
-    // SSH fails with "Permission denied (publickey)" because the local .priv
-    // can't prove ownership of that .pub. The .priv is authoritative — any .pub
-    // that doesn't derive from it is wrong by definition, so we back up the
-    // stale file and rewrite .pub from the derived key.
-    //
-    // Passphrase-protected and otherwise unverifiable keys are skipped silently
-    // — BatchMode SSH can't use them without an active ssh-agent anyway.
-    const verification = verifyKeyPair(privPath, pubPath);
-    if (verification === "mismatch") {
-      const repaired = repairPubFromPriv(privPath, pubPath);
-      if (!repaired) {
-        logWarn(
-          `SSH key '${baseName}' skipped: ${pubPath} does not pair with the local private key and could not be repaired automatically.`,
-        );
-        continue;
-      }
-      logInfo(`Repaired ${pubPath} (stale public key replaced; original saved as ${repaired}).`);
-      // fall through — pair is now valid
-    } else if (verification === "unverifiable") {
-      continue;
-    }
-
-    // Extract key type via ssh-keygen
-    const keyType = getKeyType(pubPath);
-    pairs.push({
-      privPath,
-      pubPath,
-      name: baseName,
-      type: keyType,
-    });
-  }
-
-  // Sort: ed25519 first, then rsa, then others; alphabetical within each group
-  pairs.sort((a, b) => {
-    const order = (t: string) => {
-      const upper = t.toUpperCase();
-      if (upper.includes("ED25519")) {
-        return 0;
-      }
-      if (upper.includes("RSA")) {
-        return 1;
-      }
-      return 2;
-    };
-    const diff = order(a.type) - order(b.type);
-    if (diff !== 0) {
-      return diff;
-    }
-    return a.name.localeCompare(b.name);
-  });
-
-  return pairs;
-}
+// ─── Pubkey helpers ─────────────────────────────────────────────────────────
 
 /**
  * Read the first two whitespace-separated fields ("type base64") from an OpenSSH
@@ -164,11 +101,9 @@ function derivePubFromPriv(privPath: string): string {
  * derive the public key from the private key and compare to the `.pub`.
  *
  * Returns:
- *   - "match"       — derived public matches `.pub`
- *   - "mismatch"    — files exist but do NOT pair (silent-failure source)
+ *   - "match"        — derived public matches `.pub`
+ *   - "mismatch"     — files exist but do NOT pair (silent-failure source)
  *   - "unverifiable" — passphrase-protected, corrupt, or otherwise can't derive
- *                     (skip silently — spawn's BatchMode SSH can't use these
- *                     anyway unless the user has them in ssh-agent)
  */
 export function verifyKeyPair(privPath: string, pubPath: string): "match" | "mismatch" | "unverifiable" {
   const derivedCore = pubKeyCore(derivePubFromPriv(privPath));
@@ -193,11 +128,7 @@ export function verifyKeyPair(privPath: string, pubPath: string): "match" | "mis
  *
  * The original `.pub` is preserved as `<pubPath>.spawn-backup-<timestamp>` so
  * the user can inspect what was replaced. Returns the backup path on success,
- * or null if the private key couldn't be read (passphrase-protected, etc.) or
- * the filesystem write failed.
- *
- * Safe because the `.priv` is authoritative: any `.pub` that doesn't derive
- * from it is wrong by definition.
+ * or null if the private key couldn't be read or the filesystem write failed.
  */
 export function repairPubFromPriv(privPath: string, pubPath: string): string | null {
   const derived = derivePubFromPriv(privPath);
@@ -245,81 +176,6 @@ function getKeyType(pubPath: string): string {
   );
 }
 
-// ─── Key Generation ─────────────────────────────────────────────────────────
-
-/** Generate a new ed25519 key at ~/.ssh/id_ed25519. Returns the pair. */
-export function generateSshKey(): SshKeyPair {
-  const sshDir = getSshDir();
-  const privPath = `${sshDir}/id_ed25519`;
-  const pubPath = `${privPath}.pub`;
-
-  mkdirSync(sshDir, {
-    recursive: true,
-    mode: 0o700,
-  });
-
-  // If the key already exists (e.g. another concurrent process generated it),
-  // reuse it instead of failing. ssh-keygen prompts for overwrite on stdin,
-  // which fails when stdin is "ignore".
-  if (existsSync(privPath) && existsSync(pubPath)) {
-    logInfo("SSH key already exists, reusing");
-    const keyType = getKeyType(pubPath);
-    return {
-      privPath,
-      pubPath,
-      name: "id_ed25519",
-      type: keyType,
-    };
-  }
-
-  logStep("Generating SSH key...");
-  const result = Bun.spawnSync(
-    [
-      "ssh-keygen",
-      "-t",
-      "ed25519",
-      "-f",
-      privPath,
-      "-N",
-      "",
-      "-C",
-      "spawn",
-    ],
-    {
-      stdio: [
-        "ignore",
-        "pipe",
-        "pipe",
-      ],
-    },
-  );
-  if (result.exitCode !== 0) {
-    // Another process may have created the key between our check and ssh-keygen.
-    // Re-check before throwing.
-    if (existsSync(privPath) && existsSync(pubPath)) {
-      logInfo("SSH key created by another process, reusing");
-      const keyType = getKeyType(pubPath);
-      return {
-        privPath,
-        pubPath,
-        name: "id_ed25519",
-        type: keyType,
-      };
-    }
-    throw new Error("SSH key generation failed");
-  }
-  logInfo("SSH key generated");
-
-  return {
-    privPath,
-    pubPath,
-    name: "id_ed25519",
-    type: "ED25519",
-  };
-}
-
-// ─── Fingerprint ────────────────────────────────────────────────────────────
-
 /** Get the MD5 fingerprint of a public key (for cloud provider matching). */
 export function getSshFingerprint(pubPath: string): string {
   return unwrapOr(
@@ -349,33 +205,155 @@ export function getSshFingerprint(pubPath: string): string {
   );
 }
 
+// ─── Spawn Key Management ───────────────────────────────────────────────────
+
+/**
+ * Ensure the spawn-managed ed25519 key exists at ~/.ssh/spawn_ed25519 and
+ * return it. Generated on first use, then cached. The custom filename avoids
+ * clobbering the user's personal `id_ed25519` and keeps Spawn's key isolated
+ * from the rest of their SSH setup.
+ */
+export function getSpawnKey(): SshKeyPair {
+  if (cachedSpawnKey) {
+    return cachedSpawnKey;
+  }
+
+  const sshDir = getSshDir();
+  const privPath = `${sshDir}/${SPAWN_KEY_NAME}`;
+  const pubPath = `${privPath}.pub`;
+
+  mkdirSync(sshDir, {
+    recursive: true,
+    mode: 0o700,
+  });
+
+  if (existsSync(privPath) && existsSync(pubPath)) {
+    cachedSpawnKey = {
+      privPath,
+      pubPath,
+      name: SPAWN_KEY_NAME,
+      type: getKeyType(pubPath),
+    };
+    return cachedSpawnKey;
+  }
+
+  logStep("Generating Spawn SSH key...");
+  const result = Bun.spawnSync(
+    [
+      "ssh-keygen",
+      "-t",
+      "ed25519",
+      "-f",
+      privPath,
+      "-N",
+      "",
+      "-C",
+      "spawn",
+    ],
+    {
+      stdio: [
+        "ignore",
+        "pipe",
+        "pipe",
+      ],
+    },
+  );
+  if (result.exitCode !== 0) {
+    // Race: another process may have created the key between our check and ssh-keygen.
+    if (existsSync(privPath) && existsSync(pubPath)) {
+      cachedSpawnKey = {
+        privPath,
+        pubPath,
+        name: SPAWN_KEY_NAME,
+        type: getKeyType(pubPath),
+      };
+      return cachedSpawnKey;
+    }
+    throw new Error("Spawn SSH key generation failed");
+  }
+  logInfo(`Spawn SSH key generated at ~/.ssh/${SPAWN_KEY_NAME}`);
+
+  cachedSpawnKey = {
+    privPath,
+    pubPath,
+    name: SPAWN_KEY_NAME,
+    type: "ED25519",
+  };
+  return cachedSpawnKey;
+}
+
+/**
+ * Discover pre-existing default-named keys (id_ed25519, id_rsa, id_ecdsa) in
+ * ~/.ssh/, excluding the spawn-managed key. Used as -i fallbacks so droplets
+ * provisioned by older Spawn versions (which registered the user's personal
+ * keys with the cloud account) remain SSH-reachable.
+ *
+ * Stale .pub files are auto-repaired against their .priv (the .priv is
+ * authoritative; a non-derivable .pub is wrong by definition). Passphrase-
+ * protected and unverifiable pairs are skipped silently — BatchMode SSH can't
+ * use those without an active ssh-agent anyway.
+ */
+export function discoverLegacyKeys(): SshKeyPair[] {
+  const sshDir = getSshDir();
+  if (!existsSync(sshDir)) {
+    return [];
+  }
+
+  const pairs: SshKeyPair[] = [];
+  for (const baseName of LEGACY_KEY_NAMES) {
+    if (baseName === SPAWN_KEY_NAME) {
+      continue;
+    }
+    const privPath = `${sshDir}/${baseName}`;
+    const pubPath = `${privPath}.pub`;
+    if (!existsSync(privPath) || !existsSync(pubPath)) {
+      continue;
+    }
+
+    const verification = verifyKeyPair(privPath, pubPath);
+    if (verification === "mismatch") {
+      const repaired = repairPubFromPriv(privPath, pubPath);
+      if (!repaired) {
+        continue;
+      }
+    } else if (verification === "unverifiable") {
+      continue;
+    }
+
+    pairs.push({
+      privPath,
+      pubPath,
+      name: baseName,
+      type: getKeyType(pubPath),
+    });
+  }
+  return pairs;
+}
+
 // ─── Main Entry Point ───────────────────────────────────────────────────────
 
 /**
- * Discover, generate, or use all SSH keys automatically.
+ * Return the keys to offer when SSHing to a Spawn-managed VM.
  *
- * - 0 keys found → generate one, return [generatedKey]
- * - 1+ keys found → use all silently (ed25519 preferred, sorted first)
+ * - First entry is always the spawn-managed key (generated if missing) — this
+ *   is what new VMs are provisioned with.
+ * - Followed by any pre-existing default-named keys as legacy -i fallbacks
+ *   so VMs provisioned by older Spawn versions remain reachable.
+ * - Capped at MAX_KEYS so we stay under a typical sshd MaxAuthTries (6).
  *
- * Results are cached at module level so subsequent calls return instantly.
+ * Cached at module level so subsequent calls return instantly.
  */
 export async function ensureSshKeys(): Promise<SshKeyPair[]> {
   if (cachedKeys) {
     return cachedKeys;
   }
 
-  const discovered = discoverSshKeys();
-
-  if (discovered.length === 0) {
-    const generated = generateSshKey();
-    cachedKeys = [
-      generated,
-    ];
-    return cachedKeys;
-  }
-
-  logInfo(`Using ${discovered.length} SSH key(s)`);
-  cachedKeys = discovered;
+  const spawnKey = getSpawnKey();
+  const legacy = discoverLegacyKeys();
+  cachedKeys = [
+    spawnKey,
+    ...legacy,
+  ].slice(0, MAX_KEYS);
   return cachedKeys;
 }
 

@@ -22,7 +22,7 @@ import {
   spawnInteractive,
   validateRemotePath,
 } from "../shared/ssh.js";
-import { ensureSshKeys, getSshKeyOpts } from "../shared/ssh-keys.js";
+import { ensureSshKeys, getSpawnKey, getSshKeyOpts, SPAWN_KEY_NAME } from "../shared/ssh-keys.js";
 import {
   getServerNameFromEnv,
   jsonEscape,
@@ -857,9 +857,9 @@ async function lightsailGetInstance(instanceName: string): Promise<{
 // ─── SSH Key Management ─────────────────────────────────────────────────────
 
 export async function ensureSshKey(): Promise<void> {
-  const selectedKeys = await ensureSshKeys();
-  // Lightsail associates one key pair per instance — use the first selected key
-  const key = selectedKeys[0];
+  // Lightsail associates one key pair per instance — always use the
+  // spawn-managed key. User's personal keys stay off the AWS account.
+  const key = getSpawnKey();
 
   const pubPath = key.pubPath;
   if (!existsSync(pubPath)) {
@@ -1236,7 +1236,7 @@ export async function interactiveSession(cmd: string): Promise<number> {
   logInfo("  spawn delete");
   logInfo("To reconnect:");
   logInfo("  spawn last");
-  logInfo(`  or: ssh ${SSH_USER}@${_state.instanceIp}`);
+  logInfo(`  or: ssh -i ~/.ssh/${SPAWN_KEY_NAME} ${SSH_USER}@${_state.instanceIp}`);
 
   return exitCode;
 }

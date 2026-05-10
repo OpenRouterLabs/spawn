@@ -19,7 +19,7 @@ import {
   spawnInteractive,
   validateRemotePath,
 } from "../shared/ssh.js";
-import { ensureSshKeys, getSshKeyOpts } from "../shared/ssh-keys.js";
+import { ensureSshKeys, getSpawnKey, getSshKeyOpts } from "../shared/ssh-keys.js";
 import {
   getServerNameFromEnv,
   logError,
@@ -642,15 +642,12 @@ export async function promptZone(): Promise<string> {
 // ─── SSH Key ────────────────────────────────────────────────────────────────
 
 async function ensureSshKey(): Promise<string> {
-  const selectedKeys = await ensureSshKeys();
-  // GCP accepts multiple ssh-keys in metadata, one per line
-  const pubKeys: string[] = [];
-  for (const key of selectedKeys) {
-    const pubKey = readFileSync(key.pubPath, "utf-8").trim();
-    pubKeys.push(pubKey);
-  }
-  logInfo(`${selectedKeys.length} SSH key(s) ready`);
-  return pubKeys.join("\n");
+  // Inject only the spawn-managed key into instance metadata. User's other
+  // local keys stay off the instance (privacy + avoids client-side auth flood).
+  const spawnKey = getSpawnKey();
+  const pubKey = readFileSync(spawnKey.pubPath, "utf-8").trim();
+  logInfo(`SSH key '${spawnKey.name}' ready`);
+  return pubKey;
 }
 
 // ─── Username ───────────────────────────────────────────────────────────────

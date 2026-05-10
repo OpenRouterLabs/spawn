@@ -32,7 +32,7 @@ import {
   validateRemotePath,
   waitForSshSnapshotBoot,
 } from "../shared/ssh.js";
-import { ensureSshKeys, getSshFingerprint, getSshKeyOpts } from "../shared/ssh-keys.js";
+import { ensureSshKeys, getSpawnKey, getSshFingerprint, getSshKeyOpts, SPAWN_KEY_NAME } from "../shared/ssh-keys.js";
 import {
   defaultSpawnName,
   getServerNameFromEnv,
@@ -365,27 +365,18 @@ export async function fetchDoAccountSnapshot(): Promise<DoAccountSnapshot | null
 }
 
 /**
- * True if at least one local SSH key fingerprint is registered on the DO account.
+ * True if the spawn-managed key is registered on the DO account.
  */
 export async function areSshKeysRegisteredOnDigitalOcean(): Promise<boolean> {
   if (!_state.token) {
     return false;
   }
-  const selectedKeys = await ensureSshKeys();
-  if (selectedKeys.length === 0) {
+  const fingerprint = getSshFingerprint(getSpawnKey().pubPath);
+  if (!fingerprint) {
     return false;
   }
   const keys = await doGetAll("/account/keys", "ssh_keys");
-  for (const key of selectedKeys) {
-    const fingerprint = getSshFingerprint(key.pubPath);
-    if (!fingerprint) {
-      continue;
-    }
-    if (keys.some((k: Record<string, unknown>) => (k.fingerprint || "") === fingerprint)) {
-      return true;
-    }
-  }
-  return false;
+  return keys.some((k) => k.fingerprint === fingerprint);
 }
 
 /** Ensure attribution tag exists (ignore if already present or insufficient scope). */
@@ -966,55 +957,45 @@ export async function ensureDoToken(): Promise<boolean> {
 
 // ─── SSH Key Management ──────────────────────────────────────────────────────
 
+/** Register the spawn-managed key with DigitalOcean if not already present.
+ * Only the spawn key is uploaded — the user's personal keys stay private. */
 export async function ensureSshKey(): Promise<void> {
-  const selectedKeys = await ensureSshKeys();
-
-  // Fetch all registered keys (paginated) once before the loop to avoid N+1 API calls
-  const keys = await doGetAll("/account/keys", "ssh_keys");
-
-  for (const key of selectedKeys) {
-    const fingerprint = getSshFingerprint(key.pubPath);
-    if (!fingerprint) {
-      logWarn(`Could not determine fingerprint for SSH key '${key.name}'`);
-      continue;
-    }
-
-    const found = keys.some((k: Record<string, unknown>) => {
-      const fp = k.fingerprint || "";
-      return fp === fingerprint;
-    });
-
-    if (found) {
-      logInfo(`SSH key '${key.name}' already registered with DigitalOcean`);
-      continue;
-    }
-
-    // Register key
-    logStep(`Registering SSH key '${key.name}' with DigitalOcean...`);
-    const pubKey = readFileSync(key.pubPath, "utf-8").trim();
-    const body = JSON.stringify({
-      name: `spawn-${key.name}`,
-      public_key: pubKey,
-    });
-    const regResult = await asyncTryCatch(() => doApi("POST", "/account/keys", body));
-    if (!regResult.ok) {
-      const msg = getErrorMessage(regResult.error);
-      // Key may already exist under a different name — non-fatal
-      if (msg.includes("already been taken") || msg.includes("already in use")) {
-        logInfo(`SSH key '${key.name}' already registered (under a different name)`);
-        continue;
-      }
-      logWarn(`SSH key '${key.name}' registration may have failed, continuing...`);
-      continue;
-    }
-    const regData = parseJsonObj(regResult.data);
-    if (regData?.ssh_key) {
-      logInfo(`SSH key '${key.name}' registered with DigitalOcean`);
-      continue;
-    }
-
-    logWarn(`SSH key '${key.name}' registration may have failed, continuing...`);
+  const spawnKey = getSpawnKey();
+  const fingerprint = getSshFingerprint(spawnKey.pubPath);
+  if (!fingerprint) {
+    logWarn(`Could not determine fingerprint for SSH key '${spawnKey.name}'`);
+    return;
   }
+
+  const keys = await doGetAll("/account/keys", "ssh_keys");
+  const found = keys.some((k) => k.fingerprint === fingerprint);
+  if (found) {
+    logInfo(`SSH key '${spawnKey.name}' already registered with DigitalOcean`);
+    return;
+  }
+
+  logStep(`Registering SSH key '${spawnKey.name}' with DigitalOcean...`);
+  const pubKey = readFileSync(spawnKey.pubPath, "utf-8").trim();
+  const body = JSON.stringify({
+    name: `spawn-${spawnKey.name}`,
+    public_key: pubKey,
+  });
+  const regResult = await asyncTryCatch(() => doApi("POST", "/account/keys", body));
+  if (!regResult.ok) {
+    const msg = getErrorMessage(regResult.error);
+    if (msg.includes("already been taken") || msg.includes("already in use")) {
+      logInfo(`SSH key '${spawnKey.name}' already registered (under a different name)`);
+      return;
+    }
+    logWarn(`SSH key '${spawnKey.name}' registration may have failed, continuing...`);
+    return;
+  }
+  const regData = parseJsonObj(regResult.data);
+  if (regData?.ssh_key) {
+    logInfo(`SSH key '${spawnKey.name}' registered with DigitalOcean`);
+    return;
+  }
+  logWarn(`SSH key '${spawnKey.name}' registration may have failed, continuing...`);
 }
 
 // ─── Droplet Size Options ────────────────────────────────────────────────────
@@ -1214,16 +1195,21 @@ export async function createServer(
     `Creating DigitalOcean droplet '${name}' (size: ${size}, region: ${effectiveRegion}, image: ${imageLabel})...`,
   );
 
-  // Get all SSH key IDs (paginated to avoid missing keys beyond page 1)
-  const allKeys = await doGetAll("/account/keys", "ssh_keys");
-  const sshKeyIds: number[] = allKeys.map((k) => (isNumber(k.id) ? k.id : 0)).filter((n) => n > 0);
+  // Attach only the spawn-managed key — user's other registered keys stay off
+  // the droplet (privacy + avoids sshd MaxAuthTries flood on the client side).
+  const spawnFingerprint = getSshFingerprint(getSpawnKey().pubPath);
+  const sshKeys: string[] = spawnFingerprint
+    ? [
+        spawnFingerprint,
+      ]
+    : [];
 
   const dropletConfig: Record<string, unknown> = {
     name,
     region: effectiveRegion,
     size,
     image,
-    ssh_keys: sshKeyIds,
+    ssh_keys: sshKeys,
     backups: false,
     monitoring: false,
   };
@@ -1668,7 +1654,7 @@ export async function interactiveSession(cmd: string, ip?: string): Promise<numb
   logInfo("  spawn delete");
   logInfo("To reconnect:");
   logInfo("  spawn last");
-  logInfo(`  or: ssh root@${serverIp}`);
+  logInfo(`  or: ssh -i ~/.ssh/${SPAWN_KEY_NAME} root@${serverIp}`);
 
   return exitCode;
 }
