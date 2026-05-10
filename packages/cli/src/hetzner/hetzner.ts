@@ -21,7 +21,7 @@ import {
   validateRemotePath,
   waitForSshSnapshotBoot,
 } from "../shared/ssh.js";
-import { ensureSshKeys, getSshFingerprint, getSshKeyOpts } from "../shared/ssh-keys.js";
+import { ensureSshKeys, getSpawnKey, getSshFingerprint, getSshKeyOpts, SPAWN_KEY_NAME } from "../shared/ssh-keys.js";
 import {
   getServerNameFromEnv,
   jsonEscape,
@@ -243,61 +243,51 @@ export async function ensureHcloudToken(): Promise<void> {
 
 // ─── SSH Key Management ──────────────────────────────────────────────────────
 
+/** Register the spawn-managed key with Hetzner if not already present.
+ * Only the spawn key is uploaded — the user's personal keys stay private. */
 export async function ensureSshKey(): Promise<void> {
-  const selectedKeys = await ensureSshKeys();
-
-  // Fetch all registered keys (paginated) once before the loop to avoid N+1 API calls
-  const sshKeys = await hetznerGetAll("/ssh_keys", "ssh_keys");
-
-  for (const key of selectedKeys) {
-    const fingerprint = getSshFingerprint(key.pubPath);
-    if (!fingerprint) {
-      logWarn(`Could not determine fingerprint for SSH key '${key.name}'`);
-      continue;
-    }
-    const pubKey = readFileSync(key.pubPath, "utf-8").trim();
-
-    const alreadyRegistered = sshKeys.some((k) => k.fingerprint === fingerprint);
-
-    if (alreadyRegistered) {
-      logInfo(`SSH key '${key.name}' already registered with Hetzner`);
-      continue;
-    }
-
-    // Register key
-    logStep(`Registering SSH key '${key.name}' with Hetzner...`);
-    const keyName = `spawn-${key.name}-${Date.now()}`;
-    const body = JSON.stringify({
-      name: keyName,
-      public_key: pubKey,
-    });
-    const regResult = await asyncTryCatch(() => hetznerApi("POST", "/ssh_keys", body));
-    if (!regResult.ok) {
-      // HTTP 409 "uniqueness_error" means the key already exists under a different
-      // name. Hetzner's error message says "SSH key not unique" which the API layer
-      // throws as an Error before we can parse the response body.
-      const errMsg = getErrorMessage(regResult.error);
-      if (/uniqueness_error|not unique|already/.test(errMsg)) {
-        logInfo(`SSH key '${key.name}' already registered (different name)`);
-        continue;
-      }
-      throw regResult.error;
-    }
-    const regResp = regResult.data;
-    const regData = parseJsonObj(regResp);
-    const regError = toRecord(regData?.error);
-    const regErrMsg = isString(regError?.message) ? regError.message : "";
-    if (regErrMsg) {
-      // Key may already exist under a different name — non-fatal
-      if (/already|uniqueness|not unique/.test(regErrMsg)) {
-        logInfo(`SSH key '${key.name}' already registered (different name)`);
-        continue;
-      }
-      logError(`Failed to register SSH key '${key.name}': ${regErrMsg}`);
-      throw new Error("SSH key registration failed");
-    }
-    logInfo(`SSH key '${key.name}' registered with Hetzner`);
+  const spawnKey = getSpawnKey();
+  const fingerprint = getSshFingerprint(spawnKey.pubPath);
+  if (!fingerprint) {
+    logWarn(`Could not determine fingerprint for SSH key '${spawnKey.name}'`);
+    return;
   }
+  const pubKey = readFileSync(spawnKey.pubPath, "utf-8").trim();
+
+  const sshKeys = await hetznerGetAll("/ssh_keys", "ssh_keys");
+  const alreadyRegistered = sshKeys.some((k) => k.fingerprint === fingerprint);
+  if (alreadyRegistered) {
+    logInfo(`SSH key '${spawnKey.name}' already registered with Hetzner`);
+    return;
+  }
+
+  logStep(`Registering SSH key '${spawnKey.name}' with Hetzner...`);
+  const keyName = `spawn-${spawnKey.name}-${Date.now()}`;
+  const body = JSON.stringify({
+    name: keyName,
+    public_key: pubKey,
+  });
+  const regResult = await asyncTryCatch(() => hetznerApi("POST", "/ssh_keys", body));
+  if (!regResult.ok) {
+    const errMsg = getErrorMessage(regResult.error);
+    if (/uniqueness_error|not unique|already/.test(errMsg)) {
+      logInfo(`SSH key '${spawnKey.name}' already registered (different name)`);
+      return;
+    }
+    throw regResult.error;
+  }
+  const regData = parseJsonObj(regResult.data);
+  const regError = toRecord(regData?.error);
+  const regErrMsg = isString(regError?.message) ? regError.message : "";
+  if (regErrMsg) {
+    if (/already|uniqueness|not unique/.test(regErrMsg)) {
+      logInfo(`SSH key '${spawnKey.name}' already registered (different name)`);
+      return;
+    }
+    logError(`Failed to register SSH key '${spawnKey.name}': ${regErrMsg}`);
+    throw new Error("SSH key registration failed");
+  }
+  logInfo(`SSH key '${spawnKey.name}' registered with Hetzner`);
 }
 
 // ─── Cloud Init Userdata ────────────────────────────────────────────────────
@@ -549,9 +539,14 @@ export async function createServer(
     throw new Error("Invalid location");
   }
 
-  // Get all SSH key IDs once (paginated to avoid missing keys beyond page 1)
+  // Attach only the spawn-managed key (look it up by fingerprint among the
+  // account's keys). User's other registered keys stay off the server.
+  const spawnFingerprint = getSshFingerprint(getSpawnKey().pubPath);
   const allKeys = await hetznerGetAll("/ssh_keys", "ssh_keys");
-  const sshKeyIds: number[] = allKeys.map((k) => (isNumber(k.id) ? k.id : 0)).filter(Boolean);
+  const sshKeyIds: number[] = allKeys
+    .filter((k) => k.fingerprint === spawnFingerprint)
+    .map((k) => (isNumber(k.id) ? k.id : 0))
+    .filter(Boolean);
   const userdata = getCloudInitUserdata(tier);
 
   // Track locations that failed so the user isn't offered them again
@@ -939,7 +934,7 @@ export async function interactiveSession(cmd: string, ip?: string): Promise<numb
   logInfo("  spawn delete");
   logInfo("To reconnect:");
   logInfo("  spawn last");
-  logInfo(`  or: ssh root@${serverIp}`);
+  logInfo(`  or: ssh -i ~/.ssh/${SPAWN_KEY_NAME} root@${serverIp}`);
 
   return exitCode;
 }

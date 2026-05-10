@@ -8,7 +8,12 @@ import { logError, logInfo, logStep, logStepDone, logStepInline } from "./ui.js"
 
 // ─── Shared SSH Options ──────────────────────────────────────────────────────
 
-/** Base SSH options shared across all clouds (array form for Bun.spawn). */
+/** Base SSH options shared across all clouds (array form for Bun.spawn).
+ *
+ * IdentitiesOnly=yes forces ssh to use only the keys passed via -i and ignore
+ * agent-loaded identities. Without it, a user with several keys in ssh-agent
+ * can hit the server's MaxAuthTries (default 6) before our -i key is offered,
+ * producing a misleading "Permission denied (publickey)". */
 export const SSH_BASE_OPTS: string[] = [
   "-o",
   "StrictHostKeyChecking=accept-new",
@@ -28,6 +33,8 @@ export const SSH_BASE_OPTS: string[] = [
   "TCPKeepAlive=no",
   "-o",
   "BatchMode=yes",
+  "-o",
+  "IdentitiesOnly=yes",
 ];
 
 /**
@@ -67,6 +74,8 @@ export const SSH_INTERACTIVE_OPTS: string[] = [
   "EscapeChar=none",
   "-o",
   "AddressFamily=inet",
+  "-o",
+  "IdentitiesOnly=yes",
   "-t",
 ];
 
