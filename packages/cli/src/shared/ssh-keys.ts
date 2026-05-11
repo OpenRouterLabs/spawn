@@ -1,6 +1,6 @@
 // shared/ssh-keys.ts — Spawn-owned SSH key with legacy fallback for back-compat
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import * as p from "@clack/prompts";
 import { getSshDir } from "./paths.js";
 import { isFileError, tryCatch, tryCatchIf, unwrapOr } from "./result.js";
@@ -425,7 +425,9 @@ export async function promptForSshKey(currentKeyPaths: string[] = []): Promise<s
 
   // Discover keys fresh — the user may have generated/added one in another
   // shell since spawn started, and we want to surface those new options.
-  const discovered = discoverSshKeys();
+  // Use discoverLegacyKeys to list user-visible keys without triggering
+  // spawn key generation (which requires ssh-keygen and is not needed here).
+  const discovered = discoverLegacyKeys();
   const currentSet = new Set(currentKeyPaths);
 
   type Option = {
