@@ -19,10 +19,10 @@ Returns JSON: `{"status":"success","ip_address":"...","ssh_user":"root","server_
 
 ```bash
 # Claude Code (use -p, NOT --print or --headless)
-ssh -o StrictHostKeyChecking=accept-new root@<ip> "bash -lc 'claude -p --dangerously-skip-permissions \"your prompt\"'"
+ssh -i ~/.ssh/spawn_ed25519 -o StrictHostKeyChecking=accept-new root@<ip> "bash -lc 'claude -p --dangerously-skip-permissions \"your prompt\"'"
 
 # Codex CLI
-ssh -o StrictHostKeyChecking=accept-new root@<ip> "bash -lc 'codex --quiet \"your prompt\"'"
+ssh -i ~/.ssh/spawn_ed25519 -o StrictHostKeyChecking=accept-new root@<ip> "bash -lc 'codex --quiet \"your prompt\"'"
 ```
 
 ### IMPORTANT — do NOT waste tokens rediscovering these:
