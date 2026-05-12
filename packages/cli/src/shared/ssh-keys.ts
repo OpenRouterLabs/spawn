@@ -1,10 +1,13 @@
 // shared/ssh-keys.ts — Spawn-owned SSH key with legacy fallback for back-compat
 
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import * as p from "@clack/prompts";
-import { getSshDir } from "./paths.js";
+import * as v from "valibot";
+import { parseJsonObj } from "./parse.js";
+import { getSpawnPreferencesPath, getSshDir } from "./paths.js";
 import { isFileError, tryCatch, tryCatchIf, unwrapOr } from "./result.js";
-import { logInfo, logStep } from "./ui.js";
+import { logInfo, logStep, logWarn } from "./ui.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -331,13 +334,126 @@ export function discoverLegacyKeys(): SshKeyPair[] {
   return pairs;
 }
 
+// ─── Saved-preference helpers ───────────────────────────────────────────────
+
+/**
+ * Subset of `~/.config/spawn/preferences.json` we care about here. Other
+ * fields (`models`, `starPromptShownAt`, etc.) are owned by other modules
+ * and must round-trip untouched, so reads use a tolerant schema and writes
+ * merge into the existing object.
+ */
+const SshPreferencesSchema = v.object({
+  sshKeyPath: v.optional(v.string()),
+});
+
+/**
+ * Read the user's saved preferred SSH private-key path, if any.
+ *
+ * Returns `null` when the preferences file is missing, malformed, has no
+ * `sshKeyPath` field, or points at a path that no longer exists. The
+ * "still exists" check is important: stale references to deleted keys
+ * would otherwise short-circuit `ensureSshKeys()` and break every spawn
+ * run until the user notices and edits the file.
+ */
+export function getPreferredSshKeyPath(): string | null {
+  const prefsPath = getSpawnPreferencesPath();
+  if (!existsSync(prefsPath)) {
+    return null;
+  }
+  const parsed = tryCatch(() => {
+    const raw = parseJsonObj(readFileSync(prefsPath, "utf-8"));
+    if (!raw) {
+      return null;
+    }
+    const result = v.safeParse(SshPreferencesSchema, raw);
+    if (!result.success) {
+      return null;
+    }
+    return result.output.sshKeyPath ?? null;
+  });
+  if (!parsed.ok || !parsed.data) {
+    return null;
+  }
+  // Drop the saved value if the file no longer exists — better to fall
+  // through to discovery than to fail with a stale reference.
+  if (!existsSync(parsed.data)) {
+    return null;
+  }
+  return parsed.data;
+}
+
+/**
+ * Persist the user's chosen SSH private-key path so subsequent spawn runs
+ * use it directly. Other fields in `preferences.json` are preserved.
+ *
+ * Failures are swallowed (the path is best-effort UX, not data the user
+ * supplied directly), but a warning is logged so the user can debug.
+ */
+export function setPreferredSshKeyPath(privPath: string): void {
+  const prefsPath = getSpawnPreferencesPath();
+  const result = tryCatch(() => {
+    const existing: Record<string, unknown> = existsSync(prefsPath)
+      ? (parseJsonObj(readFileSync(prefsPath, "utf-8")) ?? {})
+      : {};
+    const merged = {
+      ...existing,
+      sshKeyPath: privPath,
+    };
+    mkdirSync(dirname(prefsPath), {
+      recursive: true,
+    });
+    writeFileSync(prefsPath, `${JSON.stringify(merged, null, 2)}\n`);
+  });
+  if (!result.ok) {
+    logWarn(`Could not save preferred SSH key to ${prefsPath}: ${result.error.message}`);
+  }
+}
+
+/** Remove the saved SSH-key preference. Used by tests and recovery flows. */
+export function clearPreferredSshKeyPath(): void {
+  const prefsPath = getSpawnPreferencesPath();
+  if (!existsSync(prefsPath)) {
+    return;
+  }
+  tryCatch(() => {
+    const existing = parseJsonObj(readFileSync(prefsPath, "utf-8")) ?? {};
+    if (!("sshKeyPath" in existing)) {
+      return;
+    }
+    const { sshKeyPath: _drop, ...rest } = existing;
+    writeFileSync(prefsPath, `${JSON.stringify(rest, null, 2)}\n`);
+  });
+}
+
+/**
+ * Build a SshKeyPair record from a private-key path on disk. Used when
+ * honoring a saved preference — we don't always need the public key, but
+ * we still try to populate metadata so logs are accurate.
+ */
+function pairFromPrivPath(privPath: string): SshKeyPair {
+  const segments = privPath.split("/");
+  const name = segments[segments.length - 1] || privPath;
+  const pubPath = `${privPath}.pub`;
+  const type = existsSync(pubPath) ? getKeyType(pubPath) : "UNKNOWN";
+  return {
+    privPath,
+    pubPath,
+    name,
+    type,
+  };
+}
+
 // ─── Main Entry Point ───────────────────────────────────────────────────────
 
 /**
  * Return the keys to offer when SSHing to a Spawn-managed VM.
  *
- * - First entry is always the spawn-managed key (generated if missing) — this
- *   is what new VMs are provisioned with.
+ * - Saved preference exists & file present → use ONLY that key. The user
+ *   already told spawn which key works for the cloud they're using; mixing
+ *   in extra `-i` flags would just burn MaxAuthTries on guesses we know
+ *   will fail.
+ * - First entry is always the spawn-managed key (generated if missing) —
+ *   this is what new VMs are provisioned with.
  * - Followed by any pre-existing default-named keys as legacy -i fallbacks
  *   so VMs provisioned by older Spawn versions remain reachable.
  * - Capped at MAX_KEYS so we stay under a typical sshd MaxAuthTries (6).
@@ -346,6 +462,18 @@ export function discoverLegacyKeys(): SshKeyPair[] {
  */
 export async function ensureSshKeys(): Promise<SshKeyPair[]> {
   if (cachedKeys) {
+    return cachedKeys;
+  }
+
+  // Honor a saved preference first: if the user previously picked a key
+  // (after spawn auto-discovery failed to authenticate), use only that
+  // one. We've already verified the path exists in getPreferredSshKeyPath.
+  const preferred = getPreferredSshKeyPath();
+  if (preferred) {
+    logInfo(`Using saved SSH key: ${preferred}`);
+    cachedKeys = [
+      pairFromPrivPath(preferred),
+    ];
     return cachedKeys;
   }
 

@@ -1,14 +1,8 @@
 /**
  * ssh-key-picker.test.ts — Tests for the interactive SSH-key picker that's
  * triggered when waitForSsh sees repeated "Permission denied (publickey)"
- * handshake failures.
- *
- * Covers:
- *   - promptForSshKey returns null in non-interactive mode
- *   - promptForSshKey returns null when the user picks "skip"
- *   - promptForSshKey returns the chosen private-key path when a key is selected
- *   - promptForSshKey returns the entered path when the user chooses "Custom path..."
- *   - waitForSsh swaps the SSH key on the next handshake attempt after auth failure
+ * handshake failures, plus the saved-preference helpers that remember the
+ * user's choice across spawn runs.
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
@@ -37,7 +31,14 @@ const clackMocks = mockClackPrompts({
   text: mock(() => Promise.resolve("")),
 });
 
-const { promptForSshKey, _resetCache } = await import("../shared/ssh-keys");
+const {
+  promptForSshKey,
+  getPreferredSshKeyPath,
+  setPreferredSshKeyPath,
+  clearPreferredSshKeyPath,
+  ensureSshKeys,
+  _resetCache,
+} = await import("../shared/ssh-keys");
 
 // ─── Temp dir helpers (mirror ssh-keys.test.ts) ─────────────────────────────
 
@@ -260,5 +261,167 @@ describe("promptForSshKey", () => {
     // Sentinels for custom and skip must always be available
     expect(capturedOptions.some((o) => o.value === "__custom__")).toBe(true);
     expect(capturedOptions.some((o) => o.value === "__skip__")).toBe(true);
+  });
+});
+
+// ── Saved-preference helpers ────────────────────────────────────────────────
+
+describe("preferred SSH key persistence", () => {
+  function prefsPath(): string {
+    return join(tmpDir, ".config", "spawn", "preferences.json");
+  }
+
+  it("getPreferredSshKeyPath returns null when no preferences file exists", () => {
+    expect(getPreferredSshKeyPath()).toBeNull();
+  });
+
+  it("getPreferredSshKeyPath returns null when preferences file has no sshKeyPath", () => {
+    mkdirSync(join(tmpDir, ".config", "spawn"), {
+      recursive: true,
+    });
+    writeFileSync(
+      prefsPath(),
+      JSON.stringify({
+        models: {
+          codex: "openai/gpt-5",
+        },
+      }),
+    );
+    expect(getPreferredSshKeyPath()).toBeNull();
+  });
+
+  it("getPreferredSshKeyPath returns null when sshKeyPath points at a missing file", () => {
+    mkdirSync(join(tmpDir, ".config", "spawn"), {
+      recursive: true,
+    });
+    writeFileSync(
+      prefsPath(),
+      JSON.stringify({
+        sshKeyPath: "/tmp/this-file-definitely-does-not-exist-12345",
+      }),
+    );
+    expect(getPreferredSshKeyPath()).toBeNull();
+  });
+
+  it("getPreferredSshKeyPath returns the saved path when it points at a real file", () => {
+    const { priv } = createFakeKeyPair("id_ed25519");
+    mkdirSync(join(tmpDir, ".config", "spawn"), {
+      recursive: true,
+    });
+    writeFileSync(
+      prefsPath(),
+      JSON.stringify({
+        sshKeyPath: priv,
+      }),
+    );
+    expect(getPreferredSshKeyPath()).toBe(priv);
+  });
+
+  it("getPreferredSshKeyPath returns null when the file is malformed JSON", () => {
+    mkdirSync(join(tmpDir, ".config", "spawn"), {
+      recursive: true,
+    });
+    writeFileSync(prefsPath(), "{this is not json");
+    expect(getPreferredSshKeyPath()).toBeNull();
+  });
+
+  it("setPreferredSshKeyPath writes the value and preserves other fields", () => {
+    mkdirSync(join(tmpDir, ".config", "spawn"), {
+      recursive: true,
+    });
+    writeFileSync(
+      prefsPath(),
+      JSON.stringify({
+        models: {
+          codex: "openai/gpt-5",
+        },
+        starPromptShownAt: "2026-01-01T00:00:00Z",
+      }),
+    );
+    const { priv } = createFakeKeyPair("id_ed25519");
+    setPreferredSshKeyPath(priv);
+
+    const PreservedSchema = v.object({
+      sshKeyPath: v.string(),
+      models: v.object({
+        codex: v.string(),
+      }),
+      starPromptShownAt: v.string(),
+    });
+    const written = v.parse(PreservedSchema, JSON.parse(readFileSync(prefsPath(), "utf-8")));
+    expect(written.sshKeyPath).toBe(priv);
+    expect(written.models.codex).toBe("openai/gpt-5");
+    expect(written.starPromptShownAt).toBe("2026-01-01T00:00:00Z");
+  });
+
+  it("setPreferredSshKeyPath creates the preferences directory if missing", () => {
+    const { priv } = createFakeKeyPair("id_ed25519");
+    setPreferredSshKeyPath(priv);
+    const written = JSON.parse(readFileSync(prefsPath(), "utf-8"));
+    const SchemaWithKey = v.object({
+      sshKeyPath: v.string(),
+    });
+    expect(v.parse(SchemaWithKey, written).sshKeyPath).toBe(priv);
+  });
+
+  it("clearPreferredSshKeyPath removes only the sshKeyPath field", () => {
+    mkdirSync(join(tmpDir, ".config", "spawn"), {
+      recursive: true,
+    });
+    const { priv } = createFakeKeyPair("id_ed25519");
+    writeFileSync(
+      prefsPath(),
+      JSON.stringify({
+        sshKeyPath: priv,
+        models: {
+          codex: "openai/gpt-5",
+        },
+      }),
+    );
+    clearPreferredSshKeyPath();
+    const after = JSON.parse(readFileSync(prefsPath(), "utf-8"));
+    expect("sshKeyPath" in after).toBe(false);
+    const ModelsSchema = v.object({
+      models: v.object({
+        codex: v.string(),
+      }),
+    });
+    expect(v.parse(ModelsSchema, after).models.codex).toBe("openai/gpt-5");
+  });
+
+  it("ensureSshKeys honors a saved preference and returns only that key", async () => {
+    const { priv: pickedPriv } = createFakeKeyPair("id_rsa", "rsa");
+    // Also create the spawn-managed key so getSpawnKey doesn't try to ssh-keygen
+    createFakeKeyPair("spawn_ed25519");
+    mkdirSync(join(tmpDir, ".config", "spawn"), {
+      recursive: true,
+    });
+    writeFileSync(
+      prefsPath(),
+      JSON.stringify({
+        sshKeyPath: pickedPriv,
+      }),
+    );
+
+    const keys = await ensureSshKeys();
+    expect(keys).toHaveLength(1);
+    expect(keys[0].privPath).toBe(pickedPriv);
+  });
+
+  it("ensureSshKeys falls back to spawn key + legacy when the saved preference points at a missing file", async () => {
+    createFakeKeyPair("spawn_ed25519");
+    mkdirSync(join(tmpDir, ".config", "spawn"), {
+      recursive: true,
+    });
+    writeFileSync(
+      prefsPath(),
+      JSON.stringify({
+        sshKeyPath: "/tmp/nope-xyz-not-here",
+      }),
+    );
+
+    const keys = await ensureSshKeys();
+    // Spawn key is always first when no preference is honored
+    expect(keys[0].name).toBe("spawn_ed25519");
   });
 });
