@@ -60,7 +60,7 @@ function makeManifest(overrides?: Partial<Manifest>): Manifest {
         auth: "sprite login",
         provision_method: "cli",
         exec_method: "sprite exec NAME",
-        interactive_method: "sprite exec NAME -tty",
+        interactive_method: "sprite exec NAME --tty",
       },
       digitalocean: {
         name: "DigitalOcean",
