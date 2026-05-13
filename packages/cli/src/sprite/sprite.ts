@@ -142,10 +142,11 @@ function getSpriteCmd(): string | null {
 export async function ensureSpriteCli(): Promise<void> {
   const cmd = getSpriteCmd();
   if (cmd) {
-    // Log version if available
+    // Log version if available. The `version` subcommand was removed in
+    // sprite CLI v0.0.1-rc43+; only `--version` is still supported.
     const { stdout } = spawnSync([
       cmd,
-      "version",
+      "--version",
     ]);
     const ver = stdout.match(/v?\d+\.\d+\.\d+(-rc\d+)?/)?.[0];
     if (ver) {
@@ -318,7 +319,9 @@ export async function createSprite(name: string): Promise<void> {
         cmd,
         ...orgFlags(),
         "create",
-        "-skip-console",
+        // `--skip-console` (two dashes) — sprite CLI v0.0.1-rc43+ rejects
+        // the legacy single-dash `-skip-console` form.
+        "--skip-console",
         name,
       ],
       {
@@ -422,11 +425,13 @@ export function startLocalKeepAlive(): void {
     return;
   }
 
-  // Get the sprite's public URL
+  // Get the sprite's public URL.  `sprite url` is deprecated in v0.0.1-rc43+
+  // ("Command \"url\" is deprecated, use 'sprite info' to view"); `sprite info`
+  // prints the URL in the same line-form so the existing regex still matches.
   const urlResult = spawnSync([
     cmd,
     ...orgFlags(),
-    "url",
+    "info",
     "-s",
     _state.name,
   ]);
@@ -571,8 +576,8 @@ async function runSpriteSilent(cmd: string): Promise<void> {
 }
 
 /**
- * Upload a local file to the remote sprite using sprite exec -file flag.
- * The -file flag format is "localpath:remotepath".
+ * Upload a local file to the remote sprite using sprite exec --file flag.
+ * The --file flag format is "localpath:remotepath".
  */
 export async function uploadFileSprite(localPath: string, remotePath: string): Promise<void> {
   const normalizedRemote = validateRemotePath(remotePath, /^[a-zA-Z0-9/_.~-]+$/);
@@ -602,7 +607,8 @@ export async function uploadFileSprite(localPath: string, remotePath: string): P
         "exec",
         "-s",
         _state.name,
-        "-file",
+        // `--file` (two dashes) — sprite CLI v0.0.1-rc43+ rejects `-file`.
+        "--file",
         `${localPath}:${tempRemote}`,
         "--",
         "mkdir",
@@ -781,7 +787,8 @@ export async function interactiveSession(cmd: string, spawnFn?: (args: string[])
         "exec",
         "-s",
         _state.name,
-        "-tty",
+        // `--tty` (two dashes) — sprite CLI v0.0.1-rc43+ rejects `-tty`.
+        "--tty",
         "--",
         "bash",
         "-c",
