@@ -88,23 +88,22 @@ describe("doApi 401 OAuth recovery", () => {
 
   it("attempts OAuth recovery on 401 before throwing", async () => {
     state.token = "expired-token";
-    let callCount = 0;
+    let apiCallCount = 0;
+    let oauthCheckCount = 0;
     globalThis.fetch = mock((url: string | URL | Request) => {
-      callCount++;
       const urlStr = String(url);
-      // First call: the actual API call returning 401
-      if (callCount === 1) {
-        return Promise.resolve(
-          new Response("Unauthorized", {
-            status: 401,
-          }),
-        );
-      }
-      // Second call: OAuth connectivity check — fail it so tryDoOAuth returns null quickly
+      // OAuth connectivity check — fail it so tryDoOAuth returns null quickly
       // (avoids starting a real Bun.serve OAuth server)
       if (urlStr.includes("cloud.digitalocean.com")) {
+        oauthCheckCount++;
         return Promise.reject(new Error("network unavailable"));
       }
+      // Ignore background telemetry calls (PostHog) that may fire during the suite
+      if (!urlStr.includes("api.digitalocean.com")) {
+        return Promise.resolve(new Response("OK"));
+      }
+      apiCallCount++;
+      // API call returning 401
       return Promise.resolve(
         new Response("Unauthorized", {
           status: 401,
@@ -114,8 +113,9 @@ describe("doApi 401 OAuth recovery", () => {
 
     // OAuth recovery fails (connectivity check fails), so doApi throws the 401
     await expect(doApi("GET", "/account", undefined, 1)).rejects.toThrow("DigitalOcean API error 401");
-    // Verify recovery was attempted: 1 API call + 1 connectivity check = 2
-    expect(callCount).toBe(2);
+    // Verify recovery was attempted: 1 API call + 1 connectivity check
+    expect(apiCallCount).toBe(1);
+    expect(oauthCheckCount).toBe(1);
   });
 
   it("succeeds after OAuth recovery provides a new token", async () => {

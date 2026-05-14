@@ -1010,3 +1010,15 @@ export async function destroyServer(serverId?: string): Promise<void> {
   }
   logInfo(`Server ${id} destroyed`);
 }
+
+/** @internal Reset module-level state between tests. */
+export const _testHelpers = {
+  get state() {
+    return _state;
+  },
+  resetState() {
+    _state.hcloudToken = "";
+    _state.serverId = "";
+    _state.serverIp = "";
+  },
+};

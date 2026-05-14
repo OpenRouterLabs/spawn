@@ -4,6 +4,7 @@ import { mockBunSpawn, mockClackPrompts } from "./test-helpers";
 mockClackPrompts();
 
 import {
+  _testHelpers,
   cleanupOrphanedPrimaryIps,
   DEFAULT_LOCATION,
   DEFAULT_SERVER_TYPE,
@@ -21,6 +22,7 @@ beforeEach(() => {
     ...process.env,
   };
   stderrSpy = spyOn(process.stderr, "write").mockReturnValue(true);
+  _testHelpers.resetState();
 });
 
 afterEach(() => {
@@ -28,6 +30,7 @@ afterEach(() => {
   process.env = origEnv;
   stderrSpy.mockRestore();
   mock.restore();
+  _testHelpers.resetState();
 });
 
 // ─── getConnectionInfo ───────────────────────────────────────────────────────
@@ -585,10 +588,15 @@ describe("hetzner/createServer", () => {
         },
       },
     };
-    let callCount = 0;
-    global.fetch = mock(() => {
-      callCount++;
-      if (callCount <= 1) {
+    let hetznerCallCount = 0;
+    global.fetch = mock((url: string | URL | Request) => {
+      const urlStr = String(url);
+      // Ignore background telemetry calls (PostHog) that may fire during the suite
+      if (!urlStr.includes("api.hetzner.cloud")) {
+        return Promise.resolve(new Response("OK"));
+      }
+      hetznerCallCount++;
+      if (hetznerCallCount <= 1) {
         // Token validation
         return Promise.resolve(
           new Response(
@@ -598,7 +606,7 @@ describe("hetzner/createServer", () => {
           ),
         );
       }
-      if (callCount <= 2) {
+      if (hetznerCallCount <= 2) {
         // SSH keys
         return Promise.resolve(
           new Response(
@@ -608,7 +616,7 @@ describe("hetzner/createServer", () => {
           ),
         );
       }
-      if (callCount <= 3) {
+      if (hetznerCallCount <= 3) {
         // First create attempt — resource_limit_exceeded (HTTP 403)
         return Promise.resolve(
           new Response(
@@ -624,7 +632,7 @@ describe("hetzner/createServer", () => {
           ),
         );
       }
-      if (callCount <= 4) {
+      if (hetznerCallCount <= 4) {
         // List primary IPs for cleanup
         return Promise.resolve(
           new Response(
@@ -645,7 +653,7 @@ describe("hetzner/createServer", () => {
           ),
         );
       }
-      if (callCount <= 5) {
+      if (hetznerCallCount <= 5) {
         // Delete orphaned IP 100
         return Promise.resolve(
           new Response("", {
@@ -661,7 +669,7 @@ describe("hetzner/createServer", () => {
     const conn = await createServer("test-retry", "cx23", "fsn1");
     expect(conn.ip).toBe("10.0.0.5");
     // Should have called: token(1), ssh_keys(2), create-fail(3), list-ips(4), delete-ip(5), create-ok(6)
-    expect(callCount).toBeGreaterThanOrEqual(6);
+    expect(hetznerCallCount).toBeGreaterThanOrEqual(6);
   });
 
   it("throws with guidance when resource limit hit and no orphaned IPs to clean", async () => {
