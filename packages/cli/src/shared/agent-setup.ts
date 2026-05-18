@@ -728,6 +728,13 @@ export async function startHermesDashboard(runner: CloudRunner): Promise<void> {
     hermesPath,
     `if ${portCheck}; then echo "Hermes dashboard already running on :9119"; exit 0; fi`,
     "_hermes_bin=$(command -v hermes) || { echo 'hermes not found in PATH' >&2; exit 1; }",
+    // Capability probe: bail early if the installed hermes doesn't have the
+    // `dashboard` subcommand (issue #3407 — older versions or partial installs
+    // lack it, causing a confusing argparse error after a 60s timeout).
+    'if ! "$_hermes_bin" --help 2>&1 | grep -q "^[[:space:]]*dashboard"; then',
+    '  echo "hermes does not support the dashboard subcommand — skipping" >&2',
+    "  exit 1",
+    "fi",
     // --no-open: we're on a remote VM, don't try to spawn a browser there.
     // --host 127.0.0.1: loopback-only; the SSH tunnel is how the user reaches it.
     "if command -v setsid >/dev/null 2>&1; then",
@@ -749,7 +756,8 @@ export async function startHermesDashboard(runner: CloudRunner): Promise<void> {
     logInfo("Hermes web dashboard started on :9119");
   } else {
     // Non-fatal: the TUI still works even if the dashboard didn't come up.
-    logWarn("Hermes web dashboard failed to start — TUI still available");
+    // Surface the error so users see the real cause (e.g. missing subcommand).
+    logWarn(`Hermes web dashboard failed to start — TUI still available (${getErrorMessage(result.error)})`);
   }
 }
 

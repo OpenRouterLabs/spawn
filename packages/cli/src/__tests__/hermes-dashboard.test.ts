@@ -6,6 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+import { isString } from "@openrouter/spawn-shared";
 import { mockClackPrompts } from "./test-helpers";
 
 // ── Mock @clack/prompts (must be before importing agent-setup) ──────────
@@ -96,5 +97,50 @@ describe("startHermesDashboard", () => {
     expect(capturedScript).not.toContain("systemctl enable");
     expect(capturedScript).not.toContain("/etc/systemd/system/");
     expect(capturedScript).not.toContain("crontab");
+  });
+
+  it("probes hermes --help for 'dashboard' subcommand before launching (issue #3407)", () => {
+    // If the installed hermes lacks the dashboard subcommand, we should bail
+    // early instead of launching and waiting 60s for a timeout.
+    expect(capturedScript).toContain("--help");
+    expect(capturedScript).toContain("does not support the dashboard subcommand");
+    // The probe must come BEFORE the setsid/nohup launch.
+    const probeIdx = capturedScript.indexOf("--help");
+    const launchIdx = capturedScript.indexOf("setsid");
+    expect(probeIdx).toBeLessThan(launchIdx);
+  });
+});
+
+describe("startHermesDashboard — failure surfacing", () => {
+  let stderrSpy: ReturnType<typeof spyOn>;
+  let warnings: string[];
+
+  beforeEach(() => {
+    warnings = [];
+    stderrSpy = spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      const text = isString(chunk) ? chunk : new TextDecoder().decode(chunk);
+      warnings.push(text);
+      return true;
+    });
+  });
+
+  afterEach(() => {
+    stderrSpy.mockRestore();
+  });
+
+  it("includes the runServer error message in the warning so users can grep it", async () => {
+    const failing: CloudRunner = {
+      runServer: mock(async () => {
+        throw new Error("run_server failed (exit 1): hermes dashboard ...");
+      }),
+      uploadFile: mock(async () => {}),
+      downloadFile: mock(async () => {}),
+    };
+    // Should NOT throw — dashboard failure is non-fatal.
+    await startHermesDashboard(failing);
+    const combined = warnings.join("");
+    // Surfaces the underlying cause, not a generic message.
+    expect(combined).toContain("run_server failed (exit 1)");
+    expect(combined).toContain("TUI still available");
   });
 });
