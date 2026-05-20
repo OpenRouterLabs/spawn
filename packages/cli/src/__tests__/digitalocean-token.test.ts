@@ -88,12 +88,16 @@ describe("doApi 401 OAuth recovery", () => {
 
   it("attempts OAuth recovery on 401 before throwing", async () => {
     state.token = "expired-token";
-    let callCount = 0;
+    let doCallCount = 0;
     globalThis.fetch = mock((url: string | URL | Request) => {
-      callCount++;
       const urlStr = String(url);
+      // Ignore telemetry (PostHog) fire-and-forget calls triggered by logWarn
+      if (urlStr.includes("posthog") || urlStr.includes("i.posthog")) {
+        return Promise.resolve(new Response("ok"));
+      }
+      doCallCount++;
       // First call: the actual API call returning 401
-      if (callCount === 1) {
+      if (doCallCount === 1) {
         return Promise.resolve(
           new Response("Unauthorized", {
             status: 401,
