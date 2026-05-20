@@ -1195,7 +1195,12 @@ export async function setupSecurityScan(runner: CloudRunner): Promise<void> {
 
 // ─── Default Agent Definitions ───────────────────────────────────────────────
 
-function createAgents(runner: CloudRunner): Record<string, AgentConfig> {
+function createAgents(
+  runner: CloudRunner,
+  options?: {
+    isLocal?: boolean;
+  },
+): Record<string, AgentConfig> {
   return {
     claude: {
       name: "Claude Code",
@@ -1443,8 +1448,8 @@ function createAgents(runner: CloudRunner): Record<string, AgentConfig> {
         `OPENROUTER_API_KEY=${apiKey}`,
         `CURSOR_API_KEY=${apiKey}`,
       ],
-      configure: () => setupCursorProxy(runner),
-      preLaunch: () => startCursorProxy(runner),
+      configure: () => setupCursorProxy(runner, options),
+      preLaunch: () => startCursorProxy(runner, options),
       launchCmd: () =>
         'source ~/.spawnrc 2>/dev/null; export PATH="$HOME/.local/bin:$PATH"; agent --endpoint https://api2.cursor.sh',
       promptCmd: (prompt) =>
@@ -1468,11 +1473,16 @@ function resolveAgent(agents: Record<string, AgentConfig>, name: string): AgentC
  * Factory that creates agents + resolveAgent for a given CloudRunner.
  * Replaces the identical 16-line boilerplate in each cloud's agents.ts.
  */
-export function createCloudAgents(runner: CloudRunner): {
+export function createCloudAgents(
+  runner: CloudRunner,
+  options?: {
+    isLocal?: boolean;
+  },
+): {
   agents: Record<string, AgentConfig>;
   resolveAgent: (name: string) => AgentConfig;
 } {
-  const agentMap = createAgents(runner);
+  const agentMap = createAgents(runner, options);
   return {
     agents: agentMap,
     resolveAgent: (name: string) => resolveAgent(agentMap, name),

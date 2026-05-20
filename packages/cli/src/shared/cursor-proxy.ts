@@ -272,10 +272,22 @@ const CURSOR_DOMAINS = [
 // ── Deployment ──────────────────────────────────────────────────────────────
 
 /**
- * Deploy the Cursor proxy infrastructure onto the remote VM.
+ * Deploy the Cursor proxy infrastructure onto a remote VM.
  * Installs Caddy, uploads proxy scripts, writes Caddyfile, configures /etc/hosts.
+ *
+ * SAFETY: This modifies /etc/hosts and installs system-level services.
+ * Must NOT run on the user's local machine — only on remote VMs/containers.
  */
-export async function setupCursorProxy(runner: CloudRunner): Promise<void> {
+export async function setupCursorProxy(
+  runner: CloudRunner,
+  options?: {
+    isLocal?: boolean;
+  },
+): Promise<void> {
+  if (options?.isLocal) {
+    logWarn("Cursor proxy setup skipped (not supported on local cloud — would modify host system)");
+    return;
+  }
   logStep("Deploying Cursor→OpenRouter proxy...");
 
   // 1. Install Caddy if not present
@@ -355,7 +367,15 @@ CONF`,
  * Start the Cursor proxy services (Caddy + two Node.js backends).
  * Uses systemd if available, falls back to setsid/nohup.
  */
-export async function startCursorProxy(runner: CloudRunner): Promise<void> {
+export async function startCursorProxy(
+  runner: CloudRunner,
+  options?: {
+    isLocal?: boolean;
+  },
+): Promise<void> {
+  if (options?.isLocal) {
+    return;
+  }
   logStep("Starting Cursor proxy services...");
 
   // Find Node.js binary (cursor bundles its own)
