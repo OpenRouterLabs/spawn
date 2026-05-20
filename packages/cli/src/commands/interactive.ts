@@ -9,7 +9,6 @@ import { hasSavedOpenRouterKey } from "../shared/oauth.js";
 import { asyncTryCatch, tryCatch, unwrapOr } from "../shared/result.js";
 import { maybeShowStarPrompt } from "../shared/star-prompt.js";
 import { captureEvent, setTelemetryContext } from "../shared/telemetry.js";
-import { validateModelId } from "../shared/ui.js";
 import { cmdLink } from "./link.js";
 import { activeServerPicker } from "./list.js";
 import { execScript, showDryRunPreview } from "./run.js";
@@ -229,28 +228,71 @@ async function promptSetupOptions(agentName: string): Promise<Set<string> | unde
 
   const stepSet = new Set(selected);
 
-  // If user selected "Custom model", prompt for the model ID and set MODEL_ID env
+  // If user selected "Custom model", fetch models from OpenRouter and show a picker
   if (stepSet.has("custom-model")) {
     stepSet.delete("custom-model");
-    const modelId = await p.text({
-      message: "Model ID",
-      placeholder: "provider/model-name",
-      validate: (val) => {
-        if (!val?.trim()) {
-          return "Model ID is required";
-        }
-        if (!validateModelId(val.trim())) {
-          return "Invalid format — use provider/model";
-        }
-        return undefined;
-      },
-    });
-    if (!p.isCancel(modelId) && modelId.trim()) {
-      process.env.MODEL_ID = modelId.trim();
+    const modelId = await promptModelPicker();
+    if (modelId) {
+      process.env.MODEL_ID = modelId;
     }
   }
 
   return stepSet;
+}
+
+/**
+ * Fetch models from OpenRouter and show a searchable autocomplete picker.
+ * Falls back to a freeform text input if the fetch fails.
+ */
+async function promptModelPicker(): Promise<string | null> {
+  const spinner = p.spinner();
+  spinner.start("Fetching models from OpenRouter...");
+
+  const result = await asyncTryCatch(async () => {
+    const r = await fetch("https://openrouter.ai/api/v1/models");
+    if (!r.ok) {
+      return [];
+    }
+    const data: {
+      data: {
+        id: string;
+        name: string;
+        supported_parameters?: string[];
+      }[];
+    } = await r.json();
+    const CURSOR_PROVIDERS = [
+      "openai/",
+      "anthropic/",
+      "google/",
+      "x-ai/",
+    ];
+    return data.data.filter(
+      (m) => CURSOR_PROVIDERS.some((prefix) => m.id.startsWith(prefix)) && m.supported_parameters?.includes("tools"),
+    );
+  });
+  const models = result.ok ? result.data : [];
+  spinner.stop(models.length > 0 ? `${models.length} compatible models` : "Could not fetch models");
+
+  if (models.length > 0) {
+    const options = models.map((m) => ({
+      value: m.id,
+      label: m.name,
+      hint: m.id,
+    }));
+
+    const picked = await p.autocomplete({
+      message: "Pick a model",
+      options,
+      placeholder: "Type to search...",
+    });
+
+    if (p.isCancel(picked)) {
+      return null;
+    }
+    return String(picked);
+  }
+
+  return "openrouter/auto";
 }
 
 /** Show the skills picker if --beta skills is active and the agent has skills available. */
@@ -274,7 +316,7 @@ async function maybePromptSkills(manifest: Manifest, agentName: string): Promise
   }
 }
 
-export { getAndValidateCloudChoices, promptSetupOptions, promptSpawnName, selectCloud };
+export { getAndValidateCloudChoices, promptModelPicker, promptSetupOptions, promptSpawnName, selectCloud };
 
 export async function cmdInteractive(): Promise<void> {
   p.intro(pc.inverse(` spawn v${VERSION} `));

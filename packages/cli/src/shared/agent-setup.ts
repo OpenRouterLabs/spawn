@@ -1435,6 +1435,7 @@ function createAgents(
     cursor: {
       name: "Cursor CLI",
       cloudInitTier: "bun",
+      modelEnvVar: "CURSOR_MODEL",
       preProvision: detectGithubAuth,
       install: () =>
         installAgent(
