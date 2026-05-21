@@ -519,7 +519,7 @@
     "sandbox/junie": "implemented",
     "sandbox/pi": "implemented",
     "sandbox/cursor": "implemented",
-    "sandbox/t3code": "missing",
+    "sandbox/t3code": "implemented",
     "hetzner/claude": "implemented",
     "hetzner/openclaw": "implemented",
     "hetzner/codex": "implemented",
