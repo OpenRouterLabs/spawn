@@ -13,7 +13,6 @@
 import type { CloudRunner } from "./agent-setup.js";
 
 import { wrapSshCall } from "./agent-setup.js";
-import { asyncTryCatchIf, isOperationalError } from "./result.js";
 import { logInfo, logStep, logWarn } from "./ui.js";
 
 // ── Protobuf helpers (used in proxy scripts) ────────────────────────────────
@@ -304,7 +303,7 @@ export async function setupCursorProxy(runner: CloudRunner): Promise<void> {
     "caddy version",
   ].join("\n");
 
-  const caddyResult = await asyncTryCatchIf(isOperationalError, () => wrapSshCall(runner.runServer(installCaddy, 60)));
+  const caddyResult = await wrapSshCall(runner.runServer(installCaddy, 60));
   if (!caddyResult.ok) {
     logWarn("Caddy install failed — Cursor proxy will not work");
     return;
@@ -335,7 +334,11 @@ export async function setupCursorProxy(runner: CloudRunner): Promise<void> {
     "chmod 644 ~/.cursor/proxy/Caddyfile",
   ].join(" && ");
 
-  await wrapSshCall(runner.runServer(deployScript));
+  const deployResult = await wrapSshCall(runner.runServer(deployScript));
+  if (!deployResult.ok) {
+    logWarn("Proxy script deploy failed — Cursor proxy will not work");
+    return;
+  }
   logInfo("Proxy scripts deployed");
 
   // 3. Configure /etc/hosts for domain spoofing
@@ -350,7 +353,21 @@ export async function setupCursorProxy(runner: CloudRunner): Promise<void> {
     "rm -f /tmp/hosts_cursor_new",
   ].join(" && ");
 
-  await wrapSshCall(runner.runServer(hostsScript));
+  const hostsResult = await wrapSshCall(runner.runServer(hostsScript));
+  if (!hostsResult.ok) {
+    logWarn("Hosts spoofing failed — Cursor proxy will not intercept traffic");
+    return;
+  }
+
+  // macOS caches DNS aggressively; flush so /etc/hosts changes take effect immediately.
+  const flushDns = [
+    'if [ "$(uname -s)" = "Darwin" ]; then',
+    "  sudo dscacheutil -flushcache 2>/dev/null || true",
+    "  sudo killall -HUP mDNSResponder 2>/dev/null || true",
+    "fi",
+  ].join("\n");
+  await wrapSshCall(runner.runServer(flushDns));
+
   logInfo("Hosts spoofing configured");
 
   // 4. Install Caddy's internal CA cert
@@ -468,7 +485,7 @@ export async function startCursorProxy(runner: CloudRunner): Promise<void> {
     'echo "Cursor proxy failed to start"; exit 1',
   ].join("\n");
 
-  const result = await asyncTryCatchIf(isOperationalError, () => wrapSshCall(runner.runServer(script, 60)));
+  const result = await wrapSshCall(runner.runServer(script, 60));
   if (result.ok) {
     logInfo("Cursor proxy started");
   } else {
