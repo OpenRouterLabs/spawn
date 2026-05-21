@@ -37,6 +37,45 @@ import {
  *                   host (the `local` cloud).
  */
 export async function runLocalAgent(agentName: string, useSandbox: boolean): Promise<void> {
+  // Warn that local spawning executes commands directly on the user's machine.
+  // Skip in non-interactive mode (headless / CI) and when sandbox is already active.
+  if (!useSandbox && process.env.SPAWN_NON_INTERACTIVE !== "1") {
+    process.stderr.write("\n");
+    logWarn("⚠  Local execution warning");
+    logWarn("   Spawning locally will execute commands directly on this machine.");
+    logWarn("   The agent will have full access to your filesystem, shell, and network.\n");
+
+    const action = await p.select<"ok" | "sandbox" | "cancel">({
+      message: "How would you like to proceed?",
+      options: [
+        {
+          value: "ok",
+          label: "Ok",
+          hint: "proceed — execute directly on this machine",
+        },
+        {
+          value: "sandbox",
+          label: "Sandbox",
+          hint: "run inside a Docker container instead",
+        },
+        {
+          value: "cancel",
+          label: "Cancel",
+          hint: "abort the operation",
+        },
+      ],
+    });
+
+    if (p.isCancel(action) || action === "cancel") {
+      p.log.info("Operation cancelled.");
+      process.exit(0);
+    }
+
+    if (action === "sandbox") {
+      return runLocalAgent(agentName, true);
+    }
+  }
+
   const baseRunner = {
     runServer: runLocal,
     uploadFile: async (l: string, r: string) => uploadFile(l, r),
@@ -53,26 +92,6 @@ export async function runLocalAgent(agentName: string, useSandbox: boolean): Pro
   // If sandboxed, ensure Docker is installed (auto-install if missing)
   if (useSandbox) {
     await ensureDocker();
-  }
-
-  // Warn about security implications of installing OpenClaw locally
-  // (skip warning in sandbox mode — the container provides isolation)
-  if (agentName === "openclaw" && !useSandbox && process.env.SPAWN_NON_INTERACTIVE !== "1") {
-    process.stderr.write("\n");
-    logWarn("⚠  Local installation warning");
-    logWarn(`   This will install ${agent.name} directly on your machine.`);
-    logWarn("   The agent will have full access to your filesystem, shell, and network.");
-    logWarn("   For isolation, consider running on a cloud VM instead.\n");
-
-    const confirmed = await p.confirm({
-      message: "Continue with local installation?",
-      initialValue: true,
-    });
-
-    if (p.isCancel(confirmed) || !confirmed) {
-      p.log.info("Installation cancelled.");
-      process.exit(0);
-    }
   }
 
   const cloud: CloudOrchestrator = {
