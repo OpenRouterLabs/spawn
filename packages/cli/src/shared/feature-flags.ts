@@ -215,7 +215,6 @@ export function expandFastProvisionVariant(variant: string): readonly string[] {
     return [
       "images",
       "docker",
-      "sandbox",
     ];
   }
   return [];
