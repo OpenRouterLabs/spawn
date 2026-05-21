@@ -236,7 +236,6 @@ describe("feature flags", () => {
       expect(expandFastProvisionVariant("test")).toEqual([
         "images",
         "docker",
-        "sandbox",
       ]);
     });
 

@@ -153,7 +153,6 @@ function checkUnknownFlags(args: string[]): void {
     console.error(`    ${pc.cyan("--beta images")}       Use pre-built DO marketplace images (faster boot)`);
     console.error(`    ${pc.cyan("--beta parallel")}     Parallelize server boot with setup prompts`);
     console.error(`    ${pc.cyan("--beta docker")}       Use Docker CE app image on Hetzner/GCP (faster boot)`);
-    console.error(`    ${pc.cyan("--beta sandbox")}      Run local agents in a Docker container (sandboxed)`);
     console.error(`    ${pc.cyan("--beta recursive")}    Install spawn CLI on VM for recursive spawning`);
     console.error(`    ${pc.cyan("--help, -h")}          Show help information`);
     console.error(`    ${pc.cyan("--version, -v")}       Show version`);
@@ -943,7 +942,6 @@ async function main(): Promise<void> {
     "parallel",
     "docker",
     "recursive",
-    "sandbox",
     "skills",
   ]);
   const betaFeatures = extractAllFlagValues(filteredArgs, "--beta", "spawn <agent> <cloud> --beta parallel");
@@ -956,7 +954,6 @@ async function main(): Promise<void> {
       console.error(`  ${pc.cyan("images")}      Use pre-built DO marketplace images (faster boot)`);
       console.error(`  ${pc.cyan("parallel")}    Parallelize server boot with setup prompts`);
       console.error(`  ${pc.cyan("docker")}      Use Docker CE app image on Hetzner/GCP (faster boot)`);
-      console.error(`  ${pc.cyan("sandbox")}     Run local agents in a Docker container (sandboxed)`);
       console.error(`  ${pc.cyan("skills")}      Pre-install MCP servers and tools on the VM`);
       console.error(`  ${pc.cyan("recursive")}   Install spawn CLI on VM for recursive spawning`);
       process.exit(1);
@@ -969,10 +966,9 @@ async function main(): Promise<void> {
 
   // fast_provision experiment: if the user did NOT pass --beta or --fast,
   // bucket them on the PostHog `fast_provision` flag. The `test` variant
-  // turns on images + docker + sandbox by default; control behaves as before.
+  // turns on images + docker by default; control behaves as before.
   // - images:  pre-built DO marketplace images (cloud-side faster boot)
   // - docker:  Docker CE host image on Hetzner/GCP (cloud-side faster boot)
-  // - sandbox: local agents run in a Docker container (local-side faster boot)
   // Exposure is captured for both variants so PostHog can compute conversion.
   // Bundle composition lives in expandFastProvisionVariant() for unit testing.
   if (!userOptedIntoBeta) {

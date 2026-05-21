@@ -486,9 +486,9 @@ describe("update-check", () => {
   //   - SPAWN_NO_AUTO_UPDATE=1 suppresses auto-install entirely
   describe("update policy", () => {
     it("auto-installs patch bumps even without SPAWN_AUTO_UPDATE=1", async () => {
-      // 1.0.20 -> 1.0.99 is a patch bump (same major.minor)
+      // current -> 1.1.99 is a patch bump (same major.minor as the 1.1.x line)
       process.env.SPAWN_AUTO_UPDATE = undefined;
-      const fetchSpy = spyOn(global, "fetch").mockImplementation(() => Promise.resolve(new Response("1.0.99\n")));
+      const fetchSpy = spyOn(global, "fetch").mockImplementation(() => Promise.resolve(new Response("1.1.99\n")));
       const { executor } = await import("../update-check.js");
       const execFileSyncSpy = spyOn(executor, "execFileSync").mockImplementation((file: string) =>
         Buffer.from(file === "curl" ? FAKE_INSTALL_SCRIPT : ""),

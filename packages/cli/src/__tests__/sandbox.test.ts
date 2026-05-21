@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { mockBunSpawn, mockClackPrompts } from "./test-helpers";
 
 mockClackPrompts();
@@ -394,20 +396,39 @@ describe("cleanupContainer", () => {
   });
 });
 
-// ─── sandbox mode integration ───────────────────────────────────────────────
+// ─── sandbox cloud wiring ───────────────────────────────────────────────────
 
-describe("sandbox mode", () => {
-  it("sandbox beta feature is detected from SPAWN_BETA", () => {
-    process.env.SPAWN_BETA = "sandbox";
-    const betaFeatures = (process.env.SPAWN_BETA ?? "").split(",");
-    expect(betaFeatures.includes("sandbox")).toBe(true);
+describe("sandbox cloud", () => {
+  const REPO_ROOT = resolve(import.meta.dir, "../../../..");
+  const manifest = JSON.parse(readFileSync(resolve(REPO_ROOT, "manifest.json"), "utf-8"));
+  // Docker-capable agents — `sandbox` runs each inside a container image.
+  const SANDBOX_AGENTS = [
+    "claude",
+    "codex",
+    "cursor",
+    "hermes",
+    "junie",
+    "kilocode",
+    "openclaw",
+    "opencode",
+    "pi",
+  ];
+
+  it("is registered as a no-auth cloud in the manifest", () => {
+    expect(manifest.clouds.sandbox).toBeDefined();
+    expect(manifest.clouds.sandbox.auth).toBe("none");
   });
 
-  it("sandbox can coexist with other beta features", () => {
-    process.env.SPAWN_BETA = "tarball,sandbox,parallel";
-    const betaFeatures = (process.env.SPAWN_BETA ?? "").split(",");
-    expect(betaFeatures.includes("sandbox")).toBe(true);
-    expect(betaFeatures.includes("tarball")).toBe(true);
+  it("is marked implemented in the matrix for every Docker-capable agent", () => {
+    for (const agent of SANDBOX_AGENTS) {
+      expect(manifest.matrix[`sandbox/${agent}`]).toBe("implemented");
+    }
+  });
+
+  it("ships a shim script for every implemented agent", () => {
+    for (const agent of SANDBOX_AGENTS) {
+      expect(existsSync(resolve(REPO_ROOT, "sh", "sandbox", `${agent}.sh`))).toBe(true);
+    }
   });
 });
 

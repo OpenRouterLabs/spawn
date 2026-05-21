@@ -156,9 +156,8 @@ spawn claude gcp --beta tarball --beta parallel
 | `images` | Use pre-built cloud images/snapshots (faster boot) |
 | `parallel` | Parallelize server boot with setup prompts |
 | `recursive` | Install spawn CLI on VM so it can spawn child VMs |
-| `sandbox` | Run local agents in a Docker container (sandboxed) |
 
-`--fast` enables `tarball`, `images`, and `parallel` (not `recursive` or `sandbox`).
+`--fast` enables `tarball`, `images`, and `parallel` (not `recursive`).
 
 #### Recursive Spawn
 
@@ -188,12 +187,12 @@ Tear down an entire tree:
 spawn delete --cascade <id>    # Delete a VM and all its children
 ```
 
-#### Sandboxed Local
+#### Local Sandbox
 
-Use `--beta sandbox` to run local agents inside a Docker container instead of directly on your machine:
+The `sandbox` cloud runs an agent inside a throwaway Docker container on your own machine, instead of directly on your host:
 
 ```bash
-spawn claude local --beta sandbox
+spawn claude sandbox
 ```
 
 What this does:
@@ -202,12 +201,7 @@ What this does:
 - **Auto-installs Docker** if not present (OrbStack on macOS, docker.io on Linux)
 - **Cleans up the container** automatically when the session ends
 
-In the interactive picker, `--beta sandbox` adds a "Local Machine (Sandboxed)" option alongside the regular "Local Machine":
-
-```bash
-spawn --beta sandbox           # Interactive picker shows both local options
-spawn openclaw local --beta sandbox   # Direct launch, sandboxed
-```
+It's the same setup as the `local` cloud, but the agent can't touch your host filesystem, shell, or SSH keys. (This was previously the `--beta sandbox` flag.)
 
 ### Without the CLI
 
