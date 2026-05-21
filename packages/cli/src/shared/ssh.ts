@@ -146,6 +146,15 @@ export function spawnInteractive(args: string[], env?: Record<string, string | u
     env: env ?? process.env,
   });
 
+  const exitCode = result.status ?? 1;
+
+  // On SIGINT (Ctrl+C), skip terminal cleanup and return immediately.
+  // The user is trying to exit — spawning stty sane here blocks just long
+  // enough that they have to press Ctrl+C a third time to get out.
+  if (exitCode === 130 || result.signal === "SIGINT") {
+    return exitCode;
+  }
+
   // Reset terminal state after the interactive session ends.
   // The remote agent's TUI (e.g. Claude Code) may leave the terminal in
   // raw mode or with altered attributes, causing garbled post-session output.
@@ -168,7 +177,7 @@ export function spawnInteractive(args: string[], env?: Record<string, string | u
     ),
   );
 
-  return result.status ?? 1;
+  return exitCode;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
