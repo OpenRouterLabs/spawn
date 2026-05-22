@@ -31,8 +31,12 @@ function ct(){const j=Buffer.from("{}");const t=Buffer.alloc(5+j.length);t[0]=2;
 function tdf(t){return cf(em(1,em(1,es(1,t))));}
 function tef(){return cf(em(1,em(14,Buffer.from([8,10,16,5]))));}
 function bmd(id,n){return Buffer.concat([es(1,id),es(3,id),es(4,n),es(5,n)]);}
-function bmr(){return Buffer.concat([["anthropic/claude-sonnet-4-6","Claude Sonnet 4.6"],["anthropic/claude-haiku-4-5","Claude Haiku 4.5"],["openai/gpt-5.4","GPT-5.4"],["google/gemini-3.5-pro","Gemini 3.5 Pro"],["google/gemini-3.5-flash","Gemini 3.5 Flash"]].map(([i,n])=>em(1,bmd(i,n))));}
-function bdr(){return em(1,bmd("anthropic/claude-sonnet-4-6","Claude Sonnet 4.6"));}
+const _CM=process.env.CURSOR_MODEL||"";
+let _cachedModels=null;
+async function fetchModels(){if(_cachedModels)return _cachedModels;const key=process.env.OPENROUTER_API_KEY||"";try{const r=await fetch("https://openrouter.ai/api/v1/models",{headers:key?{"Authorization":"Bearer "+key}:{}});if(!r.ok)throw new Error(r.status+"");const d=await r.json();_cachedModels=d.data.map(m=>[m.id,m.name]);return _cachedModels;}catch(e){log("Model fetch failed: "+e.message);return null;}}
+function bmr(){const fb=[["anthropic/claude-sonnet-4-6","Claude Sonnet 4.6"]];const models=_cachedModels||fb;const list=_CM?[[_CM,_CM],...models.filter(([i])=>i!==_CM)]:models;return Buffer.concat(list.map(([i,n])=>em(1,bmd(i,n))));}
+function bdr(){if(_CM)return em(1,bmd(_CM,_CM));return em(1,bmd("anthropic/claude-sonnet-4-6","Claude Sonnet 4.6"));}
+fetchModels();
 function xstr(buf,out){let o=0;while(o<buf.length){let t=0,s=0;while(o<buf.length){const b=buf[o++];t|=(b&0x7f)<<s;s+=7;if(!(b&0x80))break;}const wt=t&7;if(wt===0){while(o<buf.length&&buf[o++]&0x80);}else if(wt===2){let l=0,s=0;while(o<buf.length){const b=buf[o++];l|=(b&0x7f)<<s;s+=7;if(!(b&0x80))break;}const d=buf.slice(o,o+l);o+=l;const st=d.toString("utf8");if(/^[\\x20-\\x7e]+$/.test(st))out.push(st);else try{xstr(d,out);}catch(e){}}else break;}}
 `.trim();
 
@@ -50,7 +54,7 @@ const server = http.createServer((req, res) => {
   const chunks = [];
   req.on("data", (c) => chunks.push(c));
   req.on("error", (e) => log("REQ ERR: " + e.message));
-  req.on("end", () => {
+  req.on("end", async () => {
     try {
       const buf = Buffer.concat(chunks);
       const ct = req.headers["content-type"] || "";
@@ -75,8 +79,9 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      // Model list
+      // Model list — await fetch if cache is not yet populated
       if (url.includes("GetUsableModels")) {
+        if(!_cachedModels){await fetchModels();}
         res.writeHead(200, {"content-type":"application/proto"});
         res.end(bmr());
         return;
@@ -127,6 +132,7 @@ function log(msg){try{appendFileSync(LOG,new Date().toISOString()+" "+msg+"\\n")
 ${PROTO_HELPERS}
 
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY || "";
+const OPENROUTER_MODEL = process.env.CURSOR_MODEL || "openrouter/auto";
 
 const server = http2.createServer();
 server.on("stream", (stream, headers) => {
@@ -174,7 +180,7 @@ async function callOpenRouter(msg, stream) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openrouter/auto",
+        model: OPENROUTER_MODEL,
         messages: [{ role: "user", content: msg }],
         stream: true,
       }),
