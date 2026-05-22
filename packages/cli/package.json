@@ -6,7 +6,7 @@
     "spawn": "cli.js"
   },
   "scripts": {
-    "dev": "bun run src/index.ts",
+    "dev": "SPAWN_CLI_DIR=$(git rev-parse --show-toplevel) bun run src/index.ts",
     "build": "bun build src/index.ts --outfile cli.js --target bun --minify --packages bundle",
     "compile": "bun build src/index.ts --compile --outfile spawn",
     "lint": "biome lint src/",

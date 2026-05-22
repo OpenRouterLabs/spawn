@@ -43,6 +43,24 @@ OPENROUTER_API_KEY=sk-or-v1-xxxxx \
   bash <(curl -fsSL https://openrouter.ai/labs/spawn/local/claude.sh)
 ```
 
+## Cursor CLI — Local Model Picker
+
+When spawning Cursor locally, select the **Custom model** setup option to get the
+OpenRouter model picker. Without it, Cursor uses its default model.
+
+```bash
+# Install Spawn
+curl -fsSL https://openrouter.ai/labs/spawn/cli/install.sh | bash
+
+# Launch — select "Custom model" when prompted for setup options
+spawn cursor local
+```
+
+> **Supported providers:** Only providers supported by Cursor's API key
+> integration work locally. See
+> [Cursor docs — What providers are supported?](https://cursor.com/help/models-and-usage/api-keys#what-providers-are-supported)
+> for the current list.
+
 ## What It Does
 
 Local scripts will:
