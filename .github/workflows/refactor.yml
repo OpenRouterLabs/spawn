@@ -1,24 +1,14 @@
 name: Trigger Refactor
 
+# Disabled: schedule + issue triggers removed to pause the autonomous agent
+# team. workflow_dispatch is kept so the cycle can still be run manually.
 on:
-  schedule:
-    - cron: '0 */2 * * *'
-  issues:
-    types: [opened, reopened, labeled]
   workflow_dispatch:
 
 jobs:
   trigger:
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    # Only trigger on issues with safe-to-work AND (bug, cli, enhancement, or maintenance) labels, or schedule/manual
-    if: >-
-      github.event_name != 'issues' ||
-      (contains(github.event.issue.labels.*.name, 'safe-to-work') &&
-       (contains(github.event.issue.labels.*.name, 'bug') ||
-        contains(github.event.issue.labels.*.name, 'cli') ||
-        contains(github.event.issue.labels.*.name, 'enhancement') ||
-        contains(github.event.issue.labels.*.name, 'maintenance')))
     steps:
       - name: Trigger refactor cycle
         env:
