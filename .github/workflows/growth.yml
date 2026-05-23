@@ -1,8 +1,8 @@
 name: Trigger Growth
 
+# Disabled: schedule trigger removed to pause the autonomous agent team.
+# workflow_dispatch is kept so the cycle can still be run manually.
 on:
-  schedule:
-    - cron: '37 14 * * *'
   workflow_dispatch:
 
 jobs:
