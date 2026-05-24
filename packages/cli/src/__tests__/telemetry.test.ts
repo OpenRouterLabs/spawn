@@ -125,7 +125,12 @@ describe("telemetry", () => {
     global.fetch = fetchMock;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Reset telemetry singleton state to prevent cross-test leakage.
+    // initTelemetry() sets _enabled=true which persists across test files,
+    // causing logWarn/logError in other tests to fire unexpected fetch calls.
+    const mod = await import("../shared/telemetry.js");
+    mod.resetTelemetry();
     global.fetch = originalFetch;
     if (originalTelemetry !== undefined) {
       process.env.SPAWN_TELEMETRY = originalTelemetry;

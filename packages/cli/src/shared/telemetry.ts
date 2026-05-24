@@ -238,6 +238,14 @@ export function captureError(type: string, err: unknown): void {
   });
 }
 
+/** Reset telemetry state. Used by tests to prevent cross-test leakage. */
+export function resetTelemetry(): void {
+  _enabled = false;
+  _userId = "";
+  _sessionId = "";
+  _context = {};
+}
+
 // ── Send ────────────────────────────────────────────────────────────────────
 
 /** Send a single event to PostHog immediately. Fire-and-forget. */
