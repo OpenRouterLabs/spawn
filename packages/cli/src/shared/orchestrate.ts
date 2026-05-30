@@ -1012,6 +1012,13 @@ async function postInstall(
     }
     exitCode = await cloud.interactiveSession(sessionCmd);
 
+    // SIGINT — exit immediately. The user is mashing Ctrl+C to get out;
+    // any post-session work (reconnect logic, history pull, tunnel teardown)
+    // just adds delay that forces yet another Ctrl+C.
+    if (exitCode === 130) {
+      process.exit(130);
+    }
+
     if (!isConnectionDrop(exitCode)) {
       break;
     }
