@@ -27,7 +27,7 @@
           "bypassPermissionsModeAccepted": true
         }
       },
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/agents/claude.png",
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/agents/claude.png",
       "featured_cloud": [
         "digitalocean",
         "sprite"
@@ -67,7 +67,7 @@
           "default": "openrouter/auto"
         }
       },
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/agents/openclaw.png",
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/agents/openclaw.png",
       "featured_cloud": [
         "digitalocean",
         "sprite"
@@ -101,7 +101,7 @@
         "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"
       },
       "notes": "Works with OpenRouter via OPENAI_BASE_URL override pointing to openrouter.ai/api/v1",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/agents/codex.png",
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/agents/codex.png",
       "featured_cloud": [
         "digitalocean",
         "sprite"
@@ -126,20 +126,20 @@
     "opencode": {
       "name": "OpenCode",
       "description": "AI coding agent built for the terminal with TUI",
-      "url": "https://github.com/sst/opencode",
+      "url": "https://github.com/anomalyco/opencode",
       "install": "curl -fsSL https://opencode.ai/install | bash",
       "launch": "opencode",
       "env": {
         "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"
       },
       "notes": "Natively supports OpenRouter via OPENROUTER_API_KEY env var. Go-based TUI using Bubble Tea.",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/agents/opencode.png",
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/agents/opencode.png",
       "featured_cloud": [
         "digitalocean",
         "sprite"
       ],
       "creator": "SST",
-      "repo": "sst/opencode",
+      "repo": "anomalyco/opencode",
       "license": "MIT",
       "created": "2025-04",
       "added": "2025-08",
@@ -167,7 +167,7 @@
         "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"
       },
       "notes": "Natively supports OpenRouter as a provider via KILO_PROVIDER_TYPE=openrouter. CLI installable via npm as @kilocode/cli, invocable as 'kilocode' or 'kilo'.",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/agents/kilocode.png",
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/agents/kilocode.png",
       "featured_cloud": [
         "digitalocean",
         "sprite"
@@ -202,7 +202,7 @@
         "OPENAI_API_KEY": "${OPENROUTER_API_KEY}"
       },
       "notes": "Natively supports OpenRouter via OPENROUTER_API_KEY. Also works via OPENAI_BASE_URL + OPENAI_API_KEY for OpenAI-compatible mode. Installs Python 3.11 via uv. Ships a local web dashboard (port 9119) for configuration, session monitoring, skill browsing, and gateway management — auto-exposed via SSH tunnel when run through spawn.",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/agents/hermes.png",
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/agents/hermes.png",
       "featured_cloud": [
         "digitalocean",
         "sprite"
@@ -236,7 +236,7 @@
         "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"
       },
       "notes": "Natively supports OpenRouter via JUNIE_OPENROUTER_API_KEY. Subagent tasks may require GPT-4.1 Mini, GPT-4.1, or GPT-5 models to be enabled on your OpenRouter account.",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/agents/junie.png",
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/agents/junie.png",
       "featured_cloud": [
         "digitalocean",
         "sprite"
@@ -269,7 +269,7 @@
         "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"
       },
       "notes": "Natively supports OpenRouter as a provider via OPENROUTER_API_KEY. The CLI command is 'pi'. Config lives in ~/.pi/agent/. Also known as shittycodingagent.ai.",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/agents/pi.png",
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/agents/pi.png",
       "featured_cloud": [
         "digitalocean",
         "sprite"
@@ -318,7 +318,7 @@
         }
       },
       "notes": "Routes through OpenRouter via a local ConnectRPC-to-REST translation proxy (Caddy + Node.js). The proxy intercepts Cursor's proprietary protobuf protocol, translates to OpenAI-compatible API calls, and streams responses back. Binary installs to ~/.local/bin/agent.",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/agents/cursor.png",
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/agents/cursor.png",
       "featured_cloud": [
         "digitalocean",
         "sprite"
@@ -355,7 +355,7 @@
         "OPENAI_BASE_URL": "https://openrouter.ai/api/v1"
       },
       "notes": "Web GUI that spawns Claude Code and Codex as subprocesses via node-pty. OpenRouter integration works through inherited env vars on the child agent processes. Requires Node.js 22+. Default port 3773.",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/agents/t3code.png",
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/agents/t3code.png",
       "featured_cloud": [
         "digitalocean",
         "sprite"
@@ -384,7 +384,7 @@
       "name": "Local Machine",
       "price": "Free",
       "description": "Your computer — no account or payment needed",
-      "url": "https://github.com/OpenRouterTeam/spawn",
+      "url": "https://github.com/OpenRouterLabs/spawn",
       "type": "local",
       "auth": "none",
       "provision_method": "none (local execution)",
@@ -396,7 +396,7 @@
       "name": "Local Sandbox",
       "price": "Free",
       "description": "Your computer, in a throwaway Docker container — no account or payment needed",
-      "url": "https://github.com/OpenRouterTeam/spawn",
+      "url": "https://github.com/OpenRouterLabs/spawn",
       "type": "local",
       "auth": "none",
       "provision_method": "docker run (local container)",
@@ -419,7 +419,7 @@
         "location": "nbg1",
         "image": "ubuntu-24.04"
       },
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/clouds/hetzner.png"
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/clouds/hetzner.png"
     },
     "aws": {
       "name": "AWS Lightsail",
@@ -437,7 +437,7 @@
         "blueprint": "ubuntu_24_04"
       },
       "notes": "Uses 'ubuntu' user instead of 'root'. Requires AWS CLI installed and configured.",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/clouds/aws.png"
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/clouds/aws.png"
     },
     "digitalocean": {
       "name": "DigitalOcean",
@@ -454,7 +454,7 @@
         "region": "nyc3",
         "image": "ubuntu-24-04-x64"
       },
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/clouds/digitalocean.png"
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/clouds/digitalocean.png"
     },
     "gcp": {
       "name": "GCP Compute Engine",
@@ -472,7 +472,7 @@
         "image_family": "ubuntu-2404-lts-amd64"
       },
       "notes": "Uses current username for SSH. Requires gcloud CLI installed and configured.",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/clouds/gcp.png"
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/clouds/gcp.png"
     },
     "daytona": {
       "name": "Daytona",
@@ -489,7 +489,7 @@
         "size": "small"
       },
       "notes": "Uses the Daytona SDK for sandbox lifecycle, file transfer, and signed preview URLs. SSH access tokens are minted on demand and never persisted.",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/clouds/daytona.png"
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/clouds/daytona.png"
     },
     "sprite": {
       "name": "Sprite",
@@ -501,7 +501,7 @@
       "provision_method": "sprite create",
       "exec_method": "sprite exec",
       "interactive_method": "sprite exec -tty",
-      "icon": "https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/assets/clouds/sprite.png"
+      "icon": "https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/assets/clouds/sprite.png"
     }
   },
   "matrix": {

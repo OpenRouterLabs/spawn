@@ -241,7 +241,7 @@ describe("Commands Display Output", () => {
     it("should show repository URL", () => {
       cmdHelp();
       const output = consoleMocks.log.mock.calls.map((c: unknown[]) => c.join(" ")).join("\n");
-      expect(output).toContain("OpenRouterTeam/spawn");
+      expect(output).toContain("OpenRouterLabs/spawn");
     });
   });
 

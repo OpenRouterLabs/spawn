@@ -183,7 +183,7 @@ async function refreshIconsFor(
       const contentType = res.headers.get("content-type")?.split(";")[0] ?? "";
       const ext = EXT_MAP[contentType] ?? src.ext;
       const outPath = resolve(ROOT, `${assetDir}/${id}.${ext}`);
-      const rawUrl = `https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/${assetDir}/${id}.${ext}`;
+      const rawUrl = `https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/${assetDir}/${id}.${ext}`;
 
       if (dryRun) {
         console.log(`  [dry-run] ${id}: would download ${src.url} → ${outPath}`);

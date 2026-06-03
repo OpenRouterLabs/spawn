@@ -12,7 +12,7 @@
 
 $ErrorActionPreference = "Stop"
 
-$SPAWN_REPO    = "OpenRouterTeam/spawn"
+$SPAWN_REPO    = "OpenRouterLabs/spawn"
 $SPAWN_RAW_BASE = "https://raw.githubusercontent.com/$SPAWN_REPO/main"
 $MIN_BUN_VERSION = [version]"1.2.0"
 

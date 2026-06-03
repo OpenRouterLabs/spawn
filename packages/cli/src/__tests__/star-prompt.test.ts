@@ -126,7 +126,7 @@ describe("maybeShowStarPrompt", () => {
 
     expect(logMessageSpy).toHaveBeenCalledTimes(1);
     const msg = logMessageSpy.mock.calls[0]?.[0];
-    expect(isString(msg) && msg.includes("github.com/OpenRouterTeam/spawn")).toBe(true);
+    expect(isString(msg) && msg.includes("github.com/OpenRouterLabs/spawn")).toBe(true);
   });
 
   it("saves starPromptShownAt to preferences after showing", () => {

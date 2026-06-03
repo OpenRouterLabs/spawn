@@ -180,7 +180,7 @@ export function buildReadmeTemplate(): string {
   return [
     "# __NAME__",
     "",
-    "Exported from a [spawn](https://github.com/OpenRouterTeam/spawn) session on `__CLOUD__`.",
+    "Exported from a [spawn](https://github.com/OpenRouterLabs/spawn) session on `__CLOUD__`.",
     "",
     "## Quickstart",
     "",

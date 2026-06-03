@@ -6,7 +6,7 @@ Run agents directly on your local machine without any cloud provisioning.
 
 ## Quick Start
 
-If you have the [spawn CLI](https://github.com/OpenRouterTeam/spawn) installed:
+If you have the [spawn CLI](https://github.com/OpenRouterLabs/spawn) installed:
 
 ```bash
 spawn claude local

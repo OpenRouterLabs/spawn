@@ -40,7 +40,7 @@ type SlackClient = InstanceType<typeof App>["client"];
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN ?? "";
 const SLACK_APP_TOKEN = process.env.SLACK_APP_TOKEN ?? "";
-const GITHUB_REPO = process.env.GITHUB_REPO ?? "OpenRouterTeam/spawn";
+const GITHUB_REPO = process.env.GITHUB_REPO ?? "OpenRouterLabs/spawn";
 const TRIGGER_SECRET = process.env.TRIGGER_SECRET ?? "";
 const GROWTH_TRIGGER_URL = process.env.GROWTH_TRIGGER_URL ?? "";
 const GROWTH_REPLY_SECRET = process.env.GROWTH_REPLY_SECRET ?? "";

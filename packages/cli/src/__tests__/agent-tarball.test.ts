@@ -30,7 +30,7 @@ const RELEASE_PAYLOAD = {
     {
       name: "spawn-agent-openclaw-x86_64-20260305.tar.gz",
       browser_download_url:
-        "https://github.com/OpenRouterTeam/spawn/releases/download/agent-openclaw-latest/spawn-agent-openclaw-x86_64-20260305.tar.gz",
+        "https://github.com/OpenRouterLabs/spawn/releases/download/agent-openclaw-latest/spawn-agent-openclaw-x86_64-20260305.tar.gz",
     },
   ],
 };
@@ -178,7 +178,7 @@ describe("tryTarballInstall", () => {
           {
             name: "spawn-agent-claude-x86_64-20260305.tar.gz",
             browser_download_url:
-              "https://github.com/OpenRouterTeam/spawn/releases/download/agent-claude-latest/spawn-agent-claude-x86_64-20260305.tar.gz",
+              "https://github.com/OpenRouterLabs/spawn/releases/download/agent-claude-latest/spawn-agent-claude-x86_64-20260305.tar.gz",
           },
         ],
       };
@@ -199,7 +199,7 @@ describe("tryTarballInstall", () => {
           {
             name: "spawn-agent-claude-arm64-20260305.tar.gz",
             browser_download_url:
-              "https://github.com/OpenRouterTeam/spawn/releases/download/agent-claude-latest/spawn-agent-claude-arm64-20260305.tar.gz",
+              "https://github.com/OpenRouterLabs/spawn/releases/download/agent-claude-latest/spawn-agent-claude-arm64-20260305.tar.gz",
           },
         ],
       };
@@ -220,12 +220,12 @@ describe("tryTarballInstall", () => {
           {
             name: "spawn-agent-claude-x86_64-20260305.tar.gz",
             browser_download_url:
-              "https://github.com/OpenRouterTeam/spawn/releases/download/agent-claude-latest/spawn-agent-claude-x86_64-20260305.tar.gz",
+              "https://github.com/OpenRouterLabs/spawn/releases/download/agent-claude-latest/spawn-agent-claude-x86_64-20260305.tar.gz",
           },
           {
             name: "spawn-agent-claude-arm64-20260305.tar.gz",
             browser_download_url:
-              "https://github.com/OpenRouterTeam/spawn/releases/download/agent-claude-latest/spawn-agent-claude-arm64-20260305.tar.gz",
+              "https://github.com/OpenRouterLabs/spawn/releases/download/agent-claude-latest/spawn-agent-claude-arm64-20260305.tar.gz",
           },
         ],
       };
