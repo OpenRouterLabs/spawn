@@ -497,7 +497,7 @@ function showVersion(): void {
   );
   const age = getCacheAge();
   console.log(pc.dim(`  manifest cache: ${formatCacheAge(age)}`));
-  console.log(pc.dim("  https://github.com/OpenRouterTeam/spawn"));
+  console.log(pc.dim("  https://github.com/OpenRouterLabs/spawn"));
   console.log(pc.dim(`  Run ${pc.cyan("spawn feedback")} to tell us what to improve.`));
 }
 

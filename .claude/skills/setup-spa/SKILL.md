@@ -41,7 +41,7 @@ Subsequent thread replies in tracked threads auto-trigger new Claude Code runs.
 | `SLACK_BOT_TOKEN` | Bot User OAuth Token (`xoxb-...`) |
 | `SLACK_APP_TOKEN` | App-Level Token for Socket Mode (`xapp-...`) |
 | `SLACK_CHANNEL_ID` | Channel ID to listen in (e.g. `C0123456789`) |
-| `GITHUB_REPO` | Target repo context (default: `OpenRouterTeam/spawn`) |
+| `GITHUB_REPO` | Target repo context (default: `OpenRouterLabs/spawn`) |
 | `REPO_ROOT` | Working directory for Claude Code (default: cwd) |
 
 GitHub auth uses the `gh` CLI — run `gh auth login` before starting.
@@ -59,7 +59,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export SLACK_BOT_TOKEN="xoxb-YOUR-BOT-TOKEN"
 export SLACK_APP_TOKEN="xapp-YOUR-APP-TOKEN"
 export SLACK_CHANNEL_ID="C0000000000"
-export GITHUB_REPO="OpenRouterTeam/spawn"
+export GITHUB_REPO="OpenRouterLabs/spawn"
 export REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 exec bun run "${SCRIPT_DIR}/main.ts"

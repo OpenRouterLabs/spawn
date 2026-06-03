@@ -332,7 +332,7 @@ If an agent fails to install or launch on a cloud:
 - **Rerun last session**: `spawn last` or `spawn rerun`
 - **Check version**: `spawn version` shows CLI version and cache status
 - **Update spawn**: `spawn update` checks for the latest version
-- **Report bugs**: Open an issue at https://github.com/OpenRouterTeam/spawn/issues
+- **Report bugs**: Open an issue at https://github.com/OpenRouterLabs/spawn/issues
 
 ## Matrix
 
@@ -341,7 +341,7 @@ If an agent fails to install or launch on a cloud:
 | [**Claude Code**](https://claude.ai) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | [**OpenClaw**](https://github.com/openclaw/openclaw) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | [**Codex CLI**](https://github.com/openai/codex) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| [**OpenCode**](https://github.com/sst/opencode) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [**OpenCode**](https://github.com/anomalyco/opencode) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | [**Kilo Code**](https://github.com/Kilo-Org/kilocode) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | [**Junie**](https://www.jetbrains.com/junie/) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -362,7 +362,7 @@ Scripts work standalone (`bash <(curl ...)`) or through the CLI.
 ## Development
 
 ```bash
-git clone https://github.com/OpenRouterTeam/spawn.git
+git clone https://github.com/OpenRouterLabs/spawn.git
 cd spawn
 git config core.hooksPath .githooks
 ```
@@ -400,7 +400,7 @@ Pick any agent + cloud combination from the matrix and try it out:
 spawn claude hetzner      # or any combination
 ```
 
-If something breaks, hangs, or behaves unexpectedly, open an issue using the [bug report template](https://github.com/OpenRouterTeam/spawn/issues/new?template=bug_report.yml). Include:
+If something breaks, hangs, or behaves unexpectedly, open an issue using the [bug report template](https://github.com/OpenRouterLabs/spawn/issues/new?template=bug_report.yml). Include:
 
 - The exact command you ran
 - The cloud provider and agent
@@ -411,9 +411,9 @@ If something breaks, hangs, or behaves unexpectedly, open an issue using the [bu
 
 Want to see a specific cloud provider or agent supported? Use the dedicated templates:
 
-- [Request a cloud provider](https://github.com/OpenRouterTeam/spawn/issues/new?template=cloud_request.yml)
-- [Request an agent](https://github.com/OpenRouterTeam/spawn/issues/new?template=agent_request.yml)
-- [Request a CLI feature](https://github.com/OpenRouterTeam/spawn/issues/new?template=cli_feature_request.yml)
+- [Request a cloud provider](https://github.com/OpenRouterLabs/spawn/issues/new?template=cloud_request.yml)
+- [Request an agent](https://github.com/OpenRouterLabs/spawn/issues/new?template=agent_request.yml)
+- [Request a CLI feature](https://github.com/OpenRouterLabs/spawn/issues/new?template=cli_feature_request.yml)
 
 Requests with real-world use cases get prioritized.
 
