@@ -3,7 +3,7 @@
 **Source of truth for the default LLM each agent uses via OpenRouter.**
 When updating an agent's default model, update BOTH the code and this file. This prevents regressions from stale model IDs.
 
-Last verified: 2026-03-13
+Last verified: 2026-06-02
 
 | Agent | Default Model | How It's Set |
 |---|---|---|
@@ -16,6 +16,7 @@ Last verified: 2026-03-13
 | Junie | _(provider default)_ | `JUNIE_OPENROUTER_API_KEY` — model selection handled by Junie natively |
 | Cursor CLI | _(provider default)_ | `--endpoint https://openrouter.ai/api/v1` + `CURSOR_API_KEY` — model selection via `--model` flag or `/model` in-session |
 | Pi | _(provider default)_ | `OPENROUTER_API_KEY` — model selection via `/model` in-session |
+| T3 Code | _(inherited by child agents)_ | Wraps Claude Code + Codex as subprocesses; OpenRouter via inherited `ANTHROPIC_BASE_URL` / `OPENAI_BASE_URL` env vars on the children |
 
 ## When to update
 
