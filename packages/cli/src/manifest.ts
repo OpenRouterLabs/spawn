@@ -111,7 +111,7 @@ export interface Manifest {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const REPO = "OpenRouterTeam/spawn";
+const REPO = "OpenRouterLabs/spawn";
 const RAW_BASE = `https://raw.githubusercontent.com/${REPO}/main` as const;
 /** Primary CDN for shell scripts — maps openrouter.ai/labs/spawn/* → repo sh/* */
 const SPAWN_CDN = "https://openrouter.ai/labs/spawn" as const;

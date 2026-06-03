@@ -14,7 +14,7 @@ RUN OC_ARCH=$(uname -m) && \
     OC_OS=$(uname -s | tr A-Z a-z) && \
     mkdir -p /tmp/opencode-install /root/.opencode/bin && \
     curl --proto '=https' -fsSL -o /tmp/opencode-install/oc.tar.gz \
-      "https://github.com/sst/opencode/releases/latest/download/opencode-${OC_OS}-${OC_ARCH}.tar.gz" && \
+      "https://github.com/anomalyco/opencode/releases/latest/download/opencode-${OC_OS}-${OC_ARCH}.tar.gz" && \
     tar xzf /tmp/opencode-install/oc.tar.gz -C /tmp/opencode-install && \
     mv /tmp/opencode-install/opencode /root/.opencode/bin/ && \
     rm -rf /tmp/opencode-install

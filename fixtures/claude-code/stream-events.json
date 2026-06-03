@@ -21,7 +21,7 @@
           "type": "tool_use",
           "id": "toolu_01ABC",
           "name": "Bash",
-          "input": { "command": "gh issue list --repo OpenRouterTeam/spawn --state open --limit 5" }
+          "input": { "command": "gh issue list --repo OpenRouterLabs/spawn --state open --limit 5" }
         }
       ],
       "model": "claude-sonnet-4-20250514",

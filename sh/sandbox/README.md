@@ -8,7 +8,7 @@ This was previously the `--beta sandbox` flag on the `local` cloud. It is now a 
 
 ## Quick Start
 
-If you have the [spawn CLI](https://github.com/OpenRouterTeam/spawn) installed:
+If you have the [spawn CLI](https://github.com/OpenRouterLabs/spawn) installed:
 
 ```bash
 spawn claude sandbox

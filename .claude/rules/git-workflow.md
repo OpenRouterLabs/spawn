@@ -35,7 +35,7 @@ Before editing ANY files:
    ```
 5. **Open a draft PR, then merge when done:**
    ```bash
-   gh pr create --draft --repo OpenRouterTeam/spawn
+   gh pr create --draft --repo OpenRouterLabs/spawn
    gh pr ready NUMBER && gh pr merge --squash NUMBER
    ```
 6. **Clean up** the worktree:

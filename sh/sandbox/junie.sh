@@ -23,7 +23,7 @@ fi
 # Remote — download bundled sandbox.js from GitHub release
 SANDBOX_JS=$(mktemp)
 trap 'rm -f "$SANDBOX_JS"' EXIT
-curl -fsSL --proto '=https' "https://github.com/OpenRouterTeam/spawn/releases/download/sandbox-latest/sandbox.js" -o "$SANDBOX_JS" \
+curl -fsSL --proto '=https' "https://github.com/OpenRouterLabs/spawn/releases/download/sandbox-latest/sandbox.js" -o "$SANDBOX_JS" \
     || { printf '\033[0;31mFailed to download sandbox.js\033[0m\n' >&2; exit 1; }
 
 exec bun run "$SANDBOX_JS" junie "$@"
