@@ -49,6 +49,23 @@ let fetchCalls: Array<{
   url: string;
 }> = [];
 
+/**
+ * Filter fetchCalls down to just the spawn-script download URLs.
+ *
+ * cmdRun fires background telemetry (PostHog `us.i.posthog.com/batch/`) and
+ * feature-flag (`/decide/`) requests that flush asynchronously. In a full-suite
+ * run these can land mid-test and pollute fetchCalls, so we must assert on the
+ * script-host URLs we actually care about rather than "everything that isn't the
+ * manifest". See: the cmdrun-happy-path flake fix.
+ */
+function scriptDownloadFetches() {
+  // Script URLs always end in `.sh` (primary: openrouter.ai/labs/spawn/<cloud>/<agent>.sh,
+  // fallback: raw.githubusercontent.com/.../sh/<cloud>/<agent>.sh). The manifest
+  // (`manifest.json`) and telemetry/feature-flag calls never do, so this cleanly
+  // isolates the download requests under test.
+  return fetchCalls.filter((c) => c.url.endsWith(".sh"));
+}
+
 function mockFetchForDownload(opts: {
   primaryOk?: boolean;
   fallbackOk?: boolean;
@@ -171,7 +188,7 @@ describe("cmdRun happy-path pipeline", () => {
       await cmdRun("claude", "sprite");
 
       // Should have fetched the manifest + the primary script URL
-      const scriptFetches = fetchCalls.filter((c) => !c.url.includes("manifest.json"));
+      const scriptFetches = scriptDownloadFetches();
       expect(scriptFetches.length).toBe(1);
       expect(scriptFetches[0].url).toContain("openrouter.ai");
     });
@@ -215,7 +232,7 @@ describe("cmdRun happy-path pipeline", () => {
       await cmdRun("claude", "sprite");
 
       // Should have fetched manifest + primary (failed) + fallback (success)
-      const scriptFetches = fetchCalls.filter((c) => !c.url.includes("manifest.json"));
+      const scriptFetches = scriptDownloadFetches();
       expect(scriptFetches.length).toBe(2);
       expect(scriptFetches[0].url).toContain("openrouter.ai");
       expect(scriptFetches[1].url).toContain("raw.githubusercontent.com");
