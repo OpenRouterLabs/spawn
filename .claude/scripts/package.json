@@ -4,6 +4,6 @@
   "type": "module",
   "version": "0.0.1",
   "dependencies": {
-    "valibot": "^1.0.0"
+    "valibot": "1.2.0"
   }
 }
