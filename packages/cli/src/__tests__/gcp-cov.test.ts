@@ -3,7 +3,7 @@ import { mockBunSpawn, mockClackPrompts } from "./test-helpers";
 
 mockClackPrompts();
 
-import { DEFAULT_MACHINE_TYPE, DEFAULT_ZONE, getConnectionInfo } from "../gcp/gcp";
+import { buildShieldedArgs, DEFAULT_MACHINE_TYPE, DEFAULT_ZONE, getConnectionInfo } from "../gcp/gcp";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -79,6 +79,31 @@ describe("gcp/getConnectionInfo", () => {
     const info = getConnectionInfo();
     expect(info.user).toBe("root");
     expect(typeof info.host).toBe("string");
+  });
+});
+
+// ─── buildShieldedArgs (Secure Boot default) ─────────────────────────────────
+
+describe("gcp/buildShieldedArgs", () => {
+  it("enables Shielded VM (Secure Boot) by default", () => {
+    delete process.env.GCP_NO_SECURE_BOOT;
+    expect(buildShieldedArgs()).toEqual([
+      "--shielded-secure-boot",
+      "--shielded-vtpm",
+      "--shielded-integrity-monitoring",
+    ]);
+  });
+
+  it("returns no shielded flags when GCP_NO_SECURE_BOOT=1", () => {
+    process.env.GCP_NO_SECURE_BOOT = "1";
+    expect(buildShieldedArgs()).toEqual([]);
+  });
+
+  it("only opts out for the exact value '1' (any other value stays on)", () => {
+    process.env.GCP_NO_SECURE_BOOT = "0";
+    expect(buildShieldedArgs()).toContain("--shielded-secure-boot");
+    process.env.GCP_NO_SECURE_BOOT = "true";
+    expect(buildShieldedArgs()).toContain("--shielded-secure-boot");
   });
 });
 

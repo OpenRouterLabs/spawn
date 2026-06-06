@@ -146,6 +146,7 @@ function checkUnknownFlags(args: string[]): void {
     console.error(`    ${pc.cyan("--model, -m <id>")}    Set the LLM model (e.g. openai/gpt-5.3-codex)`);
     console.error(`    ${pc.cyan("--name")}              Set the spawn/resource name`);
     console.error(`    ${pc.cyan("--reauth")}            Force re-prompting for cloud credentials`);
+    console.error(`    ${pc.cyan("--no-secure-boot")}     Disable GCP Shielded VM (Secure Boot, on by default)`);
     console.error(`    ${pc.cyan("--config <path>")}     Load config from JSON file`);
     console.error(`    ${pc.cyan("--steps <list>")}      Comma-separated setup steps to enable`);
     console.error(`    ${pc.cyan("--repo <slug|url>")}  Clone a template repo and apply spawn.md`);
@@ -926,6 +927,14 @@ async function main(): Promise<void> {
   if (reauthIdx !== -1) {
     filteredArgs.splice(reauthIdx, 1);
     process.env.SPAWN_REAUTH = "1";
+  }
+
+  // Extract --no-secure-boot boolean flag — opt out of GCP Shielded VM
+  // (Secure Boot + vTPM + integrity monitoring), which is on by default.
+  const noSecureBootIdx = filteredArgs.indexOf("--no-secure-boot");
+  if (noSecureBootIdx !== -1) {
+    filteredArgs.splice(noSecureBootIdx, 1);
+    process.env.GCP_NO_SECURE_BOOT = "1";
   }
 
   // Extract --fast boolean flag — enables images + tarballs + parallel setup
