@@ -54,6 +54,7 @@ spawn delete -c hetzner                  # Delete a server on Hetzner
 | `spawn <agent> <cloud> --config <file>` | Load options from a JSON config file |
 | `spawn <agent> <cloud> --steps <list>` | Comma-separated setup steps to enable |
 | `spawn <agent> <cloud> --custom` | Show interactive size/region pickers |
+| `spawn <agent> gcp --no-secure-boot` | Disable GCP Shielded VM (Secure Boot is on by default) |
 | `spawn <agent>` | Show available clouds for an agent |
 | `spawn <cloud>` | Show available agents for a cloud |
 | `spawn matrix` | Full agent x cloud matrix |
@@ -158,6 +159,22 @@ spawn claude gcp --beta tarball --beta parallel
 | `recursive` | Install spawn CLI on VM so it can spawn child VMs |
 
 `--fast` enables `tarball`, `images`, and `parallel` (not `recursive`).
+
+#### Secure Boot (GCP)
+
+GCP instances are provisioned as [Shielded VMs](https://cloud.google.com/security/shielded-cloud/shielded-vm)
+**by default** — Secure Boot, vTPM, and integrity monitoring are all enabled. This
+hardens the boot chain and is required for the Cloudflare (CF) skill to attest the VM.
+GCP's default Ubuntu LTS images are Shielded-VM-compatible, so this works out of the box.
+
+Opt out for a custom image that is not UEFI/Secure-Boot-capable:
+
+```bash
+spawn claude gcp --no-secure-boot
+```
+
+> Secure Boot is a GCP-only feature here. AWS spawns run on Lightsail, which does not
+> expose Secure Boot; the flag is a no-op on other clouds.
 
 #### Recursive Spawn
 
