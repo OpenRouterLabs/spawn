@@ -2,7 +2,7 @@
 
 Launch any AI agent on any cloud with a single command. Coding agents, research agents, self-hosted AI tools — Spawn deploys them all. All models powered by [OpenRouter](https://openrouter.ai). (ALPHA software, use at your own risk!)
 
-**9 agents. 7 clouds. 63 working combinations. Zero config.**
+**10 agents. 8 clouds. 79 working combinations. Zero config.**
 
 ## Install
 
@@ -54,6 +54,7 @@ spawn delete -c hetzner                  # Delete a server on Hetzner
 | `spawn <agent> <cloud> --config <file>` | Load options from a JSON config file |
 | `spawn <agent> <cloud> --steps <list>` | Comma-separated setup steps to enable |
 | `spawn <agent> <cloud> --custom` | Show interactive size/region pickers |
+| `spawn <agent> gcp --no-secure-boot` | Disable GCP Shielded VM (Secure Boot is on by default) |
 | `spawn <agent>` | Show available clouds for an agent |
 | `spawn <cloud>` | Show available agents for a cloud |
 | `spawn matrix` | Full agent x cloud matrix |
@@ -158,6 +159,22 @@ spawn claude gcp --beta tarball --beta parallel
 | `recursive` | Install spawn CLI on VM so it can spawn child VMs |
 
 `--fast` enables `tarball`, `images`, and `parallel` (not `recursive`).
+
+#### Secure Boot (GCP)
+
+GCP instances are provisioned as [Shielded VMs](https://cloud.google.com/security/shielded-cloud/shielded-vm)
+**by default** — Secure Boot, vTPM, and integrity monitoring are all enabled. This
+hardens the boot chain and is required for the Cloudflare (CF) skill to attest the VM.
+GCP's default Ubuntu LTS images are Shielded-VM-compatible, so this works out of the box.
+
+Opt out for a custom image that is not UEFI/Secure-Boot-capable:
+
+```bash
+spawn claude gcp --no-secure-boot
+```
+
+> Secure Boot is a GCP-only feature here. AWS spawns run on Lightsail, which does not
+> expose Secure Boot; the flag is a no-op on other clouds.
 
 #### Recursive Spawn
 
@@ -332,21 +349,22 @@ If an agent fails to install or launch on a cloud:
 - **Rerun last session**: `spawn last` or `spawn rerun`
 - **Check version**: `spawn version` shows CLI version and cache status
 - **Update spawn**: `spawn update` checks for the latest version
-- **Report bugs**: Open an issue at https://github.com/OpenRouterTeam/spawn/issues
+- **Report bugs**: Open an issue at https://github.com/OpenRouterLabs/spawn/issues
 
 ## Matrix
 
-| | [Local Machine](sh/local/) | [Hetzner Cloud](sh/hetzner/) | [AWS Lightsail](sh/aws/) | [DigitalOcean](sh/digitalocean/) | [GCP Compute Engine](sh/gcp/) | [Daytona](sh/daytona/) | [Sprite](sh/sprite/) |
-|---|---|---|---|---|---|---|---|
-| [**Claude Code**](https://claude.ai) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| [**OpenClaw**](https://github.com/openclaw/openclaw) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| [**Codex CLI**](https://github.com/openai/codex) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| [**OpenCode**](https://github.com/sst/opencode) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| [**Kilo Code**](https://github.com/Kilo-Org/kilocode) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| [**Junie**](https://www.jetbrains.com/junie/) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| [**Cursor CLI**](https://cursor.com/cli) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| [**Pi**](https://pi.dev) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| | [Local Machine](sh/local/) | [Local Sandbox](sh/sandbox/) | [Hetzner Cloud](sh/hetzner/) | [AWS Lightsail](sh/aws/) | [DigitalOcean](sh/digitalocean/) | [GCP Compute Engine](sh/gcp/) | [Daytona](sh/daytona/) | [Sprite](sh/sprite/) |
+|---|---|---|---|---|---|---|---|---|
+| [**Claude Code**](https://claude.ai) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [**OpenClaw**](https://github.com/openclaw/openclaw) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [**Codex CLI**](https://github.com/openai/codex) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [**OpenCode**](https://github.com/anomalyco/opencode) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [**Kilo Code**](https://github.com/Kilo-Org/kilocode) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [**Hermes Agent**](https://github.com/NousResearch/hermes-agent) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [**Junie**](https://www.jetbrains.com/junie/) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [**Cursor CLI**](https://cursor.com/cli) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [**Pi**](https://pi.dev) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [**T3 Code**](https://github.com/pingdotgg/t3code) | ✓ | — | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ### How it works
 
@@ -362,7 +380,7 @@ Scripts work standalone (`bash <(curl ...)`) or through the CLI.
 ## Development
 
 ```bash
-git clone https://github.com/OpenRouterTeam/spawn.git
+git clone https://github.com/OpenRouterLabs/spawn.git
 cd spawn
 git config core.hooksPath .githooks
 ```
@@ -400,7 +418,7 @@ Pick any agent + cloud combination from the matrix and try it out:
 spawn claude hetzner      # or any combination
 ```
 
-If something breaks, hangs, or behaves unexpectedly, open an issue using the [bug report template](https://github.com/OpenRouterTeam/spawn/issues/new?template=bug_report.yml). Include:
+If something breaks, hangs, or behaves unexpectedly, open an issue using the [bug report template](https://github.com/OpenRouterLabs/spawn/issues/new?template=bug_report.yml). Include:
 
 - The exact command you ran
 - The cloud provider and agent
@@ -411,9 +429,9 @@ If something breaks, hangs, or behaves unexpectedly, open an issue using the [bu
 
 Want to see a specific cloud provider or agent supported? Use the dedicated templates:
 
-- [Request a cloud provider](https://github.com/OpenRouterTeam/spawn/issues/new?template=cloud_request.yml)
-- [Request an agent](https://github.com/OpenRouterTeam/spawn/issues/new?template=agent_request.yml)
-- [Request a CLI feature](https://github.com/OpenRouterTeam/spawn/issues/new?template=cli_feature_request.yml)
+- [Request a cloud provider](https://github.com/OpenRouterLabs/spawn/issues/new?template=cloud_request.yml)
+- [Request an agent](https://github.com/OpenRouterLabs/spawn/issues/new?template=agent_request.yml)
+- [Request a CLI feature](https://github.com/OpenRouterLabs/spawn/issues/new?template=cli_feature_request.yml)
 
 Requests with real-world use cases get prioritized.
 

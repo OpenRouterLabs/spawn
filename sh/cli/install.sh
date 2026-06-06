@@ -11,7 +11,7 @@
 
 set -eo pipefail
 
-SPAWN_REPO="OpenRouterTeam/spawn"
+SPAWN_REPO="OpenRouterLabs/spawn"
 SPAWN_CDN="https://openrouter.ai/labs/spawn"
 SPAWN_RAW_BASE="https://raw.githubusercontent.com/${SPAWN_REPO}/main"
 MIN_BUN_VERSION="1.2.0"

@@ -16,7 +16,7 @@ set -eo pipefail
 
 _COLLAB_CACHE_FILE="/tmp/spawn-collaborators-cache"
 _COLLAB_CACHE_TTL=600  # 10 minutes
-_COLLAB_REPO="OpenRouterTeam/spawn"
+_COLLAB_REPO="OpenRouterLabs/spawn"
 
 # Refresh the collaborator cache if stale or missing
 _refresh_collaborator_cache() {

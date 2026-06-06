@@ -72,7 +72,7 @@ ${example}
 
   local issue_url
   if issue_url=$(gh issue create \
-    --repo OpenRouterTeam/spawn \
+    --repo OpenRouterLabs/spawn \
     --title "${title}" \
     --label "ux" \
     --body "${body}" 2>/dev/null); then
@@ -80,7 +80,7 @@ ${example}
   else
     # Label may not exist — retry without it
     if issue_url=$(gh issue create \
-      --repo OpenRouterTeam/spawn \
+      --repo OpenRouterLabs/spawn \
       --title "${title}" \
       --body "${body}" 2>/dev/null); then
       log_ok "UX issue filed: ${issue_url}"

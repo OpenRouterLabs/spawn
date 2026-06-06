@@ -45,7 +45,7 @@ git branch -r --format='%(refname:short) %(committerdate:relative)' | grep -v 'o
 ### Step 4: Get branches with open PRs (protected)
 
 ```bash
-gh pr list --repo OpenRouterTeam/spawn --state open --json headRefName --jq '.[].headRefName'
+gh pr list --repo OpenRouterLabs/spawn --state open --json headRefName --jq '.[].headRefName'
 ```
 
 Any branch with an open PR MUST be skipped. Never delete a branch that has an open PR.

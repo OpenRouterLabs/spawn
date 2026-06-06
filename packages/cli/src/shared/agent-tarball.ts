@@ -9,7 +9,7 @@ import * as v from "valibot";
 import { asyncTryCatch } from "./result.js";
 import { logDebug, logInfo, logStep, logWarn } from "./ui.js";
 
-const REPO = "OpenRouterTeam/spawn";
+const REPO = "OpenRouterLabs/spawn";
 
 /** Schema for a single GitHub Release asset. */
 const AssetSchema = v.object({
