@@ -37,6 +37,23 @@ import { tryCatch } from "@openrouter/spawn-shared";
 //
 // We clean up before and after every test run to keep the working tree tidy.
 
+// ── Disable telemetry / analytics network calls in tests ────────────────────
+//
+// `bun test` does NOT set NODE_ENV or BUN_ENV, so without this the telemetry
+// module (shared/telemetry.ts) sees `_enabled = true` and fires real
+// fire-and-forget PostHog `fetch` calls (https://us.i.posthog.com/batch/) plus
+// feature-flag `/decide/` requests during tests. Because those land on the
+// SAME `global.fetch` that tests mock, they:
+//   - pollute fetch-call tracking arrays (e.g. cmdrun-happy-path counted 10
+//     "downloads" instead of 1 when batched PostHog flushes interleaved), and
+//   - drift sequential `callCount`-keyed mocks (e.g. hetzner-cov's
+//     resource-limit retry test), and can make real network calls.
+// Setting these env vars before any module loads hard-disables telemetry for
+// the whole suite, removing the shared root cause of those flakes.
+process.env.NODE_ENV = "test";
+process.env.BUN_ENV = "test";
+process.env.SPAWN_TELEMETRY = "0";
+
 const REAL_HOME = process.env.HOME ?? "";
 
 function cleanupStrayTestFiles(): void {

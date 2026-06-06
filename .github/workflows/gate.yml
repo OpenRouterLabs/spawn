@@ -20,6 +20,14 @@ jobs:
             const sender = context.payload.sender.login;
             const { owner, repo } = context.repo;
 
+            // Trusted bot allowlist — App bots aren't org members or collaborators,
+            // so they need an explicit pass.
+            const TRUSTED_BOTS = new Set(['spa-the-spawn-maintainer[bot]']);
+            if (TRUSTED_BOTS.has(sender)) {
+              console.log(`${sender} is a trusted bot, allowing.`);
+              return;
+            }
+            
             // Check if user is an org member
             let isMember = false;
             try {

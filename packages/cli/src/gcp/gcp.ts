@@ -148,6 +148,30 @@ export const DEFAULT_ZONE = "us-central1-a";
 
 export const DEFAULT_DISK_SIZE_GB = 40;
 
+// ─── Shielded VM (Secure Boot) ───────────────────────────────────────────────
+
+/**
+ * GCP Shielded VM flags, enabled by DEFAULT on every spawned instance.
+ *
+ * Secure Boot + a measured (vTPM) and integrity-monitored boot chain is what
+ * the Cloudflare (CF) skill needs to attest the VM, and it is good hygiene for
+ * every spawn. GCP's Ubuntu LTS images (the default here) are
+ * Shielded-VM-compatible, so turning this on does not break boots.
+ *
+ * Opt out with the `--no-secure-boot` CLI flag (sets `GCP_NO_SECURE_BOOT=1`),
+ * for the rare case of a custom image that is not UEFI/Secure-Boot-capable.
+ */
+export function buildShieldedArgs(): string[] {
+  if (process.env.GCP_NO_SECURE_BOOT === "1") {
+    return [];
+  }
+  return [
+    "--shielded-secure-boot",
+    "--shielded-vtpm",
+    "--shielded-integrity-monitoring",
+  ];
+}
+
 // ─── State ──────────────────────────────────────────────────────────────────
 
 interface GcpState {
@@ -781,6 +805,7 @@ export async function createInstance(
         ]
       : []),
     `--metadata=ssh-keys=${sshKeysMetadata}`,
+    ...buildShieldedArgs(),
     `--project=${_state.project}`,
     "--quiet",
   ];

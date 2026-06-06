@@ -57,7 +57,7 @@ The TypeScript CLI (`src/*.ts`) provides:
 ### Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OpenRouterTeam/spawn/main/sh/cli/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/OpenRouterLabs/spawn/main/sh/cli/install.sh | bash
 ```
 
 The installer will:

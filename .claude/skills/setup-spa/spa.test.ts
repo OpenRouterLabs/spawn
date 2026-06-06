@@ -332,10 +332,10 @@ describe("extractToolHint", () => {
   it("extracts command from input", () => {
     const block: Record<string, unknown> = {
       input: {
-        command: "gh issue list --repo OpenRouterTeam/spawn",
+        command: "gh issue list --repo OpenRouterLabs/spawn",
       },
     };
-    expect(extractToolHint(block)).toBe("gh issue list --repo OpenRouterTeam/spawn");
+    expect(extractToolHint(block)).toBe("gh issue list --repo OpenRouterLabs/spawn");
   });
 
   it("extracts pattern from input", () => {

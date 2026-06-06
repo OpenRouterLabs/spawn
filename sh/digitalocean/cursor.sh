@@ -77,7 +77,7 @@ fi
 # Remote — download bundled digitalocean.js from GitHub release
 DO_JS=$(mktemp)
 trap 'rm -f "$DO_JS"' EXIT
-curl -fsSL --proto '=https' "https://github.com/OpenRouterTeam/spawn/releases/download/digitalocean-latest/digitalocean.js" -o "$DO_JS" \
+curl -fsSL --proto '=https' "https://github.com/OpenRouterLabs/spawn/releases/download/digitalocean-latest/digitalocean.js" -o "$DO_JS" \
     || { printf '\033[0;31mFailed to download digitalocean.js\033[0m\n' >&2; exit 1; }
 
 _run_with_restart bun run "$DO_JS" "$_AGENT_NAME" "$@"

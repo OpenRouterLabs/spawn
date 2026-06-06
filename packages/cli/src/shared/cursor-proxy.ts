@@ -279,11 +279,22 @@ export async function setupCursorProxy(runner: CloudRunner): Promise<void> {
   logStep("Deploying Cursor→OpenRouter proxy...");
 
   // 1. Install Caddy if not present
+  // Detect OS and arch at runtime so this works on macOS (darwin/arm64|amd64)
+  // and Linux (linux/amd64|arm64). Write to ~/.local/bin which is user-writable
+  // on every platform -- /usr/local/bin is SIP-protected on macOS and requires
+  // root elsewhere.
   const installCaddy = [
+    "set -e",
     'if command -v caddy >/dev/null 2>&1; then echo "caddy already installed"; exit 0; fi',
     'echo "Installing Caddy..."',
-    'curl -sf "https://caddyserver.com/api/download?os=linux&arch=amd64" -o /usr/local/bin/caddy',
-    "chmod +x /usr/local/bin/caddy",
+    'OS=$(uname -s | tr "[:upper:]" "[:lower:]")',
+    "ARCH=$(uname -m)",
+    '[ "$ARCH" = "x86_64" ] && ARCH="amd64"',
+    '[ "$ARCH" = "aarch64" ] && ARCH="arm64"',
+    'mkdir -p "$HOME/.local/bin"',
+    'curl -fsSL "https://caddyserver.com/api/download?os=${OS}&arch=${ARCH}" -o "$HOME/.local/bin/caddy"',
+    'chmod +x "$HOME/.local/bin/caddy"',
+    'export PATH="$HOME/.local/bin:$PATH"',
     "caddy version",
   ].join("\n");
 
@@ -322,18 +333,23 @@ export async function setupCursorProxy(runner: CloudRunner): Promise<void> {
   logInfo("Proxy scripts deployed");
 
   // 3. Configure /etc/hosts for domain spoofing
+  // Requires elevated privileges on all platforms (/etc/hosts is root-owned).
+  // Use a temp-file swap via sudo cp to avoid sed -i portability issues
+  // (macOS sed requires a backup suffix with -i; Linux does not).
   const hostsScript = [
-    // Remove any existing cursor entries
-    'sed -i "/cursor\\.sh/d" /etc/hosts 2>/dev/null || true',
-    // Add our entries
-    `echo "127.0.0.1 ${CURSOR_DOMAINS.join(" ")}" >> /etc/hosts`,
+    // Build a clean copy without existing cursor entries then append ours
+    'grep -v "cursor.sh" /etc/hosts > /tmp/hosts_cursor_new 2>/dev/null || cp /etc/hosts /tmp/hosts_cursor_new',
+    `echo "127.0.0.1 ${CURSOR_DOMAINS.join(" ")}" >> /tmp/hosts_cursor_new`,
+    "sudo cp /tmp/hosts_cursor_new /etc/hosts",
+    "rm -f /tmp/hosts_cursor_new",
   ].join(" && ");
 
   await wrapSshCall(runner.runServer(hostsScript));
   logInfo("Hosts spoofing configured");
 
   // 4. Install Caddy's internal CA cert
-  const trustScript = "caddy trust 2>/dev/null || true";
+  // Include ~/.local/bin in PATH since Caddy may have been installed there above.
+  const trustScript = 'export PATH="$HOME/.local/bin:$PATH" && caddy trust 2>/dev/null || true';
   await wrapSshCall(runner.runServer(trustScript, 30));
   logInfo("Caddy CA trusted");
 
@@ -353,7 +369,7 @@ CONF`,
 
 /**
  * Start the Cursor proxy services (Caddy + two Node.js backends).
- * Uses systemd if available, falls back to setsid/nohup.
+ * Uses systemd if available, falls back to nohup (POSIX -- works on macOS and Linux).
  */
 export async function startCursorProxy(runner: CloudRunner): Promise<void> {
   logStep("Starting Cursor proxy services...");
@@ -370,6 +386,8 @@ export async function startCursorProxy(runner: CloudRunner): Promise<void> {
 
   const script = [
     "source ~/.spawnrc 2>/dev/null",
+    // Ensure ~/.local/bin (where Caddy may be installed) is in PATH for this script.
+    'export PATH="$HOME/.local/bin:$PATH"',
     nodeFind,
 
     // Start unary backend
@@ -395,7 +413,8 @@ export async function startCursorProxy(runner: CloudRunner): Promise<void> {
     "    $_sudo systemctl daemon-reload",
     "    $_sudo systemctl restart cursor-proxy-unary",
     "  else",
-    "    setsid $NODE ~/.cursor/proxy/unary.mjs < /dev/null &",
+    // setsid is Linux-only; nohup is POSIX and works on macOS and Linux.
+    "    nohup $NODE ~/.cursor/proxy/unary.mjs < /dev/null > /tmp/cursor-proxy-unary.log 2>&1 &",
     "  fi",
     "fi",
 
@@ -423,7 +442,7 @@ export async function startCursorProxy(runner: CloudRunner): Promise<void> {
     "    $_sudo systemctl daemon-reload",
     "    $_sudo systemctl restart cursor-proxy-bidi",
     "  else",
-    "    setsid $NODE ~/.cursor/proxy/bidi.mjs < /dev/null &",
+    "    nohup $NODE ~/.cursor/proxy/bidi.mjs < /dev/null > /tmp/cursor-proxy-bidi.log 2>&1 &",
     "  fi",
     "fi",
 

@@ -21,6 +21,6 @@ fi
 # Remote — download and run compiled TypeScript bundle
 SPRITE_JS=$(mktemp)
 trap 'rm -f "$SPRITE_JS"' EXIT
-curl -fsSL --proto '=https' "https://github.com/OpenRouterTeam/spawn/releases/download/sprite-latest/sprite.js" -o "$SPRITE_JS" \
+curl -fsSL --proto '=https' "https://github.com/OpenRouterLabs/spawn/releases/download/sprite-latest/sprite.js" -o "$SPRITE_JS" \
     || { printf '\033[0;31mFailed to download sprite.js\033[0m\n' >&2; exit 1; }
 exec bun run "$SPRITE_JS" t3code "$@"

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
+import { isString } from "@openrouter/spawn-shared";
 import { mockBunSpawn, mockClackPrompts } from "./test-helpers";
 
 mockClackPrompts();
@@ -585,11 +586,21 @@ describe("hetzner/createServer", () => {
         },
       },
     };
-    let callCount = 0;
-    global.fetch = mock(() => {
-      callCount++;
-      if (callCount <= 1) {
-        // Token validation
+    // Route responses by HTTP method + endpoint rather than a fragile global
+    // call-counter. The previous call-count-keyed mock drifted in full-suite
+    // runs (the resource-limit 403 landed on the wrong call slot, so cleanup
+    // never fired and the raw 403 propagated). Routing by request makes the
+    // mock order-independent and robust to any extra/interleaved fetches.
+    let createAttempts = 0;
+    let listIpCalls = 0;
+    let deleteIpCalls = 0;
+    global.fetch = mock((input: string | URL | Request, init?: RequestInit) => {
+      const url = isString(input) ? input : input instanceof URL ? input.href : input.url;
+      const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+      const path = url.replace("https://api.hetzner.cloud/v1", "");
+
+      // Token validation (GET /servers?per_page=1) and any other server reads
+      if (method === "GET" && path.startsWith("/servers")) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -598,8 +609,8 @@ describe("hetzner/createServer", () => {
           ),
         );
       }
-      if (callCount <= 2) {
-        // SSH keys
+      // SSH keys lookup
+      if (method === "GET" && path.startsWith("/ssh_keys")) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -608,24 +619,29 @@ describe("hetzner/createServer", () => {
           ),
         );
       }
-      if (callCount <= 3) {
-        // First create attempt — resource_limit_exceeded (HTTP 403)
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              error: {
-                code: "resource_limit_exceeded",
-                message: "primary_ip_limit",
+      // Create server: first attempt fails with resource_limit, retry succeeds
+      if (method === "POST" && path === "/servers") {
+        createAttempts++;
+        if (createAttempts === 1) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: {
+                  code: "resource_limit_exceeded",
+                  message: "primary_ip_limit",
+                },
+              }),
+              {
+                status: 403,
               },
-            }),
-            {
-              status: 403,
-            },
-          ),
-        );
+            ),
+          );
+        }
+        return Promise.resolve(new Response(JSON.stringify(serverResp)));
       }
-      if (callCount <= 4) {
-        // List primary IPs for cleanup
+      // List primary IPs for cleanup — one orphaned (assignee 0), one attached
+      if (method === "GET" && path.startsWith("/primary_ips")) {
+        listIpCalls++;
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -645,31 +661,40 @@ describe("hetzner/createServer", () => {
           ),
         );
       }
-      if (callCount <= 5) {
-        // Delete orphaned IP 100
+      // Delete orphaned primary IP
+      if (method === "DELETE" && path.startsWith("/primary_ips/")) {
+        deleteIpCalls++;
         return Promise.resolve(
           new Response("", {
             status: 204,
           }),
         );
       }
-      // Retry create — success
-      return Promise.resolve(new Response(JSON.stringify(serverResp)));
+      return Promise.resolve(
+        new Response(JSON.stringify({}), {
+          status: 404,
+        }),
+      );
     });
     const { ensureHcloudToken, createServer } = await import("../hetzner/hetzner");
     await ensureHcloudToken();
     const conn = await createServer("test-retry", "cx23", "fsn1");
     expect(conn.ip).toBe("10.0.0.5");
-    // Should have called: token(1), ssh_keys(2), create-fail(3), list-ips(4), delete-ip(5), create-ok(6)
-    expect(callCount).toBeGreaterThanOrEqual(6);
+    // The retry flow must have: failed once, cleaned up an orphaned IP, retried.
+    expect(createAttempts).toBe(2);
+    expect(listIpCalls).toBeGreaterThanOrEqual(1);
+    expect(deleteIpCalls).toBe(1);
   });
 
   it("throws with guidance when resource limit hit and no orphaned IPs to clean", async () => {
     process.env.HCLOUD_TOKEN = "test-token";
-    let callCount = 0;
-    global.fetch = mock(() => {
-      callCount++;
-      if (callCount <= 1) {
+    // Route by method + endpoint (order-independent — see the retry test above).
+    global.fetch = mock((input: string | URL | Request, init?: RequestInit) => {
+      const url = isString(input) ? input : input instanceof URL ? input.href : input.url;
+      const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+      const path = url.replace("https://api.hetzner.cloud/v1", "");
+
+      if (method === "GET" && path.startsWith("/servers")) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -678,7 +703,7 @@ describe("hetzner/createServer", () => {
           ),
         );
       }
-      if (callCount <= 2) {
+      if (method === "GET" && path.startsWith("/ssh_keys")) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -687,8 +712,8 @@ describe("hetzner/createServer", () => {
           ),
         );
       }
-      if (callCount <= 3) {
-        // Create fails with resource_limit_exceeded
+      // Create always fails with resource_limit_exceeded
+      if (method === "POST" && path === "/servers") {
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -703,19 +728,26 @@ describe("hetzner/createServer", () => {
           ),
         );
       }
-      // List primary IPs — all attached (none orphaned)
+      // List primary IPs — all attached (none orphaned to clean up)
+      if (method === "GET" && path.startsWith("/primary_ips")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              primary_ips: [
+                {
+                  id: 100,
+                  ip: "1.2.3.4",
+                  assignee_id: 42,
+                },
+              ],
+            }),
+          ),
+        );
+      }
       return Promise.resolve(
-        new Response(
-          JSON.stringify({
-            primary_ips: [
-              {
-                id: 100,
-                ip: "1.2.3.4",
-                assignee_id: 42,
-              },
-            ],
-          }),
-        ),
+        new Response(JSON.stringify({}), {
+          status: 404,
+        }),
       );
     });
     const { ensureHcloudToken, createServer } = await import("../hetzner/hetzner");

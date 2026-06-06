@@ -24,6 +24,7 @@ export const KNOWN_FLAGS = new Set([
   "--clear",
   "--custom",
   "--reauth",
+  "--no-secure-boot",
   "--zone",
   "--region",
   "--machine-type",

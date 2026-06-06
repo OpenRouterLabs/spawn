@@ -146,6 +146,7 @@ function checkUnknownFlags(args: string[]): void {
     console.error(`    ${pc.cyan("--model, -m <id>")}    Set the LLM model (e.g. openai/gpt-5.3-codex)`);
     console.error(`    ${pc.cyan("--name")}              Set the spawn/resource name`);
     console.error(`    ${pc.cyan("--reauth")}            Force re-prompting for cloud credentials`);
+    console.error(`    ${pc.cyan("--no-secure-boot")}     Disable GCP Shielded VM (Secure Boot, on by default)`);
     console.error(`    ${pc.cyan("--config <path>")}     Load config from JSON file`);
     console.error(`    ${pc.cyan("--steps <list>")}      Comma-separated setup steps to enable`);
     console.error(`    ${pc.cyan("--repo <slug|url>")}  Clone a template repo and apply spawn.md`);
@@ -153,7 +154,6 @@ function checkUnknownFlags(args: string[]): void {
     console.error(`    ${pc.cyan("--beta images")}       Use pre-built DO marketplace images (faster boot)`);
     console.error(`    ${pc.cyan("--beta parallel")}     Parallelize server boot with setup prompts`);
     console.error(`    ${pc.cyan("--beta docker")}       Use Docker CE app image on Hetzner/GCP (faster boot)`);
-    console.error(`    ${pc.cyan("--beta sandbox")}      Run local agents in a Docker container (sandboxed)`);
     console.error(`    ${pc.cyan("--beta recursive")}    Install spawn CLI on VM for recursive spawning`);
     console.error(`    ${pc.cyan("--help, -h")}          Show help information`);
     console.error(`    ${pc.cyan("--version, -v")}       Show version`);
@@ -498,7 +498,7 @@ function showVersion(): void {
   );
   const age = getCacheAge();
   console.log(pc.dim(`  manifest cache: ${formatCacheAge(age)}`));
-  console.log(pc.dim("  https://github.com/OpenRouterTeam/spawn"));
+  console.log(pc.dim("  https://github.com/OpenRouterLabs/spawn"));
   console.log(pc.dim(`  Run ${pc.cyan("spawn feedback")} to tell us what to improve.`));
 }
 
@@ -929,6 +929,14 @@ async function main(): Promise<void> {
     process.env.SPAWN_REAUTH = "1";
   }
 
+  // Extract --no-secure-boot boolean flag — opt out of GCP Shielded VM
+  // (Secure Boot + vTPM + integrity monitoring), which is on by default.
+  const noSecureBootIdx = filteredArgs.indexOf("--no-secure-boot");
+  if (noSecureBootIdx !== -1) {
+    filteredArgs.splice(noSecureBootIdx, 1);
+    process.env.GCP_NO_SECURE_BOOT = "1";
+  }
+
   // Extract --fast boolean flag — enables images + tarballs + parallel setup
   const fastIdx = filteredArgs.indexOf("--fast");
   if (fastIdx !== -1) {
@@ -943,7 +951,6 @@ async function main(): Promise<void> {
     "parallel",
     "docker",
     "recursive",
-    "sandbox",
     "skills",
   ]);
   const betaFeatures = extractAllFlagValues(filteredArgs, "--beta", "spawn <agent> <cloud> --beta parallel");
@@ -956,7 +963,6 @@ async function main(): Promise<void> {
       console.error(`  ${pc.cyan("images")}      Use pre-built DO marketplace images (faster boot)`);
       console.error(`  ${pc.cyan("parallel")}    Parallelize server boot with setup prompts`);
       console.error(`  ${pc.cyan("docker")}      Use Docker CE app image on Hetzner/GCP (faster boot)`);
-      console.error(`  ${pc.cyan("sandbox")}     Run local agents in a Docker container (sandboxed)`);
       console.error(`  ${pc.cyan("skills")}      Pre-install MCP servers and tools on the VM`);
       console.error(`  ${pc.cyan("recursive")}   Install spawn CLI on VM for recursive spawning`);
       process.exit(1);
@@ -969,10 +975,9 @@ async function main(): Promise<void> {
 
   // fast_provision experiment: if the user did NOT pass --beta or --fast,
   // bucket them on the PostHog `fast_provision` flag. The `test` variant
-  // turns on images + docker + sandbox by default; control behaves as before.
+  // turns on images + docker by default; control behaves as before.
   // - images:  pre-built DO marketplace images (cloud-side faster boot)
   // - docker:  Docker CE host image on Hetzner/GCP (cloud-side faster boot)
-  // - sandbox: local agents run in a Docker container (local-side faster boot)
   // Exposure is captured for both variants so PostHog can compute conversion.
   // Bundle composition lives in expandFastProvisionVariant() for unit testing.
   if (!userOptedIntoBeta) {

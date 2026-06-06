@@ -72,7 +72,7 @@ All cloud provisioning and agent setup logic lives in TypeScript under `packages
 When you encounter bugs, stale references, broken functionality, or architectural issues that are **outside the scope of your current task**, file a GitHub issue immediately rather than ignoring them or trying to fix everything at once:
 
 ```bash
-gh issue create --repo OpenRouterTeam/spawn --title "bug: <brief description>" --body "<details>"
+gh issue create --repo OpenRouterLabs/spawn --title "bug: <brief description>" --body "<details>"
 ```
 
 Examples of when to file:
