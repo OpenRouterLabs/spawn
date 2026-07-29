@@ -17,9 +17,11 @@ import {
   getConnectionInfo,
   getServerName,
   interactiveSession,
+  MARKETPLACE_IMAGES,
   promptDoRegion,
   promptDropletSize,
   promptSpawnName,
+  resolveMarketplaceImageSlug,
   runServer,
   slugRamGb,
   uploadFile,
@@ -27,17 +29,6 @@ import {
   waitForSshOnly,
 } from "./digitalocean.js";
 import { runDigitalOceanReadinessGate } from "./readiness.js";
-
-/** DO marketplace image slugs — hardcoded from vendor portal (approved 2026-03-13) */
-const MARKETPLACE_IMAGES: Record<string, string> = {
-  claude: "openrouter-spawnclaude",
-  codex: "openrouter-spawncodex",
-  openclaw: "openrouter-spawnopenclaw",
-  opencode: "openrouter-spawnopencode",
-  kilocode: "openrouter-spawnkilocode",
-  hermes: "openrouter-spawnhermes",
-  junie: "openrouter-spawnjunie",
-};
 
 async function main() {
   const agentName = process.argv[2];
@@ -81,17 +72,13 @@ async function main() {
       region = await promptDoRegion();
     },
     async createServer(name: string) {
-      // Use pre-built marketplace image when --beta images is active
-      const betaFeatures = (process.env.SPAWN_BETA ?? "").split(",");
-      if (betaFeatures.includes("images")) {
-        const slug = MARKETPLACE_IMAGES[agentName];
-        if (slug) {
-          marketplaceImage = slug;
-          cloud.skipAgentInstall = true;
-          logInfo(`Using marketplace image: ${slug}`);
-        } else {
-          logInfo(`No marketplace image for ${agentName}, using fresh install`);
-        }
+      const slug = resolveMarketplaceImageSlug(agentName);
+      if (slug) {
+        marketplaceImage = slug;
+        cloud.skipAgentInstall = true;
+        logInfo(`Using marketplace image: ${slug}`);
+      } else if (!MARKETPLACE_IMAGES[agentName]) {
+        logInfo(`No marketplace image for ${agentName}, using fresh install`);
       }
       return await createDroplet(name, agent.cloudInitTier, dropletSize, region, marketplaceImage);
     },

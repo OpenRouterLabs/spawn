@@ -74,6 +74,31 @@ bash <(curl -fsSL https://openrouter.ai/labs/spawn/digitalocean/t3code.sh)
 | `DO_DROPLET_SIZE` | Droplet size slug (see sizes below) | `s-2vcpu-2gb` |
 | `SPAWN_JSON_READINESS` | Set to `1` with `SPAWN_NON_INTERACTIVE=1` to print machine-readable JSON when readiness is blocked | — |
 | `SPAWN_CLI_DIR` | Absolute path to the Spawn repo root when developing locally — makes the cloud shim run `packages/cli/src/{cloud}/main.ts` instead of downloading a release bundle | — |
+| `SPAWN_DO_FORCE_UBUNTU` | Set to `1` to skip DO marketplace images and use Ubuntu 24.04 + cloud-init (same as `--beta no-images`) | — |
+
+### Marketplace images (default)
+
+Spawn uses DigitalOcean 1-click marketplace images when a slug is available. The agent is pre-installed on the image, so provisioning skips cloud-init and agent install — only SSH readiness is waited on.
+
+| Agent | Marketplace slug |
+|---|---|
+| claude | `openrouter-spawnclaude` |
+| codex | `openrouter-spawncodex` |
+| openclaw | `openrouter-spawnopenclaw` |
+| opencode | `openrouter-spawnopencode` |
+| kilocode | `openrouter-spawnkilocode` |
+| hermes | `openrouter-spawnhermes` |
+| junie | `openrouter-spawnjunie` |
+
+Agents without a marketplace mapping (e.g. `cursor`, `pi`, `t3code`) use Ubuntu 24.04 with cloud-init and a full agent install.
+
+To force a fresh Ubuntu install for testing or E2E:
+
+```bash
+spawn claude digitalocean --beta no-images
+# or
+SPAWN_DO_FORCE_UBUNTU=1 spawn claude digitalocean
+```
 
 ### Pre-flight readiness
 

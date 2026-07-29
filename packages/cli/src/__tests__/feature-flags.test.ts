@@ -232,9 +232,8 @@ describe("feature flags", () => {
     // list in feature-flags.ts forces an explicit test update — drifting the
     // bundle silently is the failure mode we're guarding against.
 
-    it("returns the full provisioning-speed bundle for the test variant", () => {
+    it("returns the docker bundle for the test variant", () => {
       expect(expandFastProvisionVariant("test")).toEqual([
-        "images",
         "docker",
       ]);
     });

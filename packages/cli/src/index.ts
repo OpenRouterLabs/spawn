@@ -151,7 +151,7 @@ function checkUnknownFlags(args: string[]): void {
     console.error(`    ${pc.cyan("--steps <list>")}      Comma-separated setup steps to enable`);
     console.error(`    ${pc.cyan("--repo <slug|url>")}  Clone a template repo and apply spawn.md`);
     console.error(`    ${pc.cyan("--beta tarball")}      Use pre-built tarball for agent install (repeatable)`);
-    console.error(`    ${pc.cyan("--beta images")}       Use pre-built DO marketplace images (faster boot)`);
+    console.error(`    ${pc.cyan("--beta no-images")}    Force Ubuntu fresh install on DigitalOcean`);
     console.error(`    ${pc.cyan("--beta parallel")}     Parallelize server boot with setup prompts`);
     console.error(`    ${pc.cyan("--beta docker")}       Use Docker CE app image on Hetzner/GCP (faster boot)`);
     console.error(`    ${pc.cyan("--beta recursive")}    Install spawn CLI on VM for recursive spawning`);
@@ -948,6 +948,7 @@ async function main(): Promise<void> {
   const VALID_BETA_FEATURES = new Set([
     "tarball",
     "images",
+    "no-images",
     "parallel",
     "docker",
     "recursive",
@@ -960,7 +961,7 @@ async function main(): Promise<void> {
       console.error(pc.red(`Unknown beta feature: ${pc.bold(flag)}`));
       console.error("\nAvailable beta features:");
       console.error(`  ${pc.cyan("tarball")}     Use pre-built tarball for agent installation`);
-      console.error(`  ${pc.cyan("images")}      Use pre-built DO marketplace images (faster boot)`);
+      console.error(`  ${pc.cyan("no-images")}   Force Ubuntu fresh install on DigitalOcean`);
       console.error(`  ${pc.cyan("parallel")}    Parallelize server boot with setup prompts`);
       console.error(`  ${pc.cyan("docker")}      Use Docker CE app image on Hetzner/GCP (faster boot)`);
       console.error(`  ${pc.cyan("skills")}      Pre-install MCP servers and tools on the VM`);
@@ -975,9 +976,9 @@ async function main(): Promise<void> {
 
   // fast_provision experiment: if the user did NOT pass --beta or --fast,
   // bucket them on the PostHog `fast_provision` flag. The `test` variant
-  // turns on images + docker by default; control behaves as before.
-  // - images:  pre-built DO marketplace images (cloud-side faster boot)
+  // turns on docker by default; control behaves as before.
   // - docker:  Docker CE host image on Hetzner/GCP (cloud-side faster boot)
+  // DO marketplace images are always-on when a slug exists (see resolveMarketplaceImageSlug).
   // Exposure is captured for both variants so PostHog can compute conversion.
   // Bundle composition lives in expandFastProvisionVariant() for unit testing.
   if (!userOptedIntoBeta) {

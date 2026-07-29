@@ -213,7 +213,6 @@ export function getFeatureFlag<T extends string | boolean>(key: string, fallback
 export function expandFastProvisionVariant(variant: string): readonly string[] {
   if (variant === "test") {
     return [
-      "images",
       "docker",
     ];
   }
