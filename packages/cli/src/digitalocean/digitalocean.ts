@@ -1047,6 +1047,29 @@ export const AGENT_MIN_SIZE: Record<string, string> = {
   openclaw: "s-2vcpu-4gb",
 };
 
+/** DO marketplace image slugs — hardcoded from vendor portal (approved 2026-03-13) */
+export const MARKETPLACE_IMAGES: Record<string, string> = {
+  claude: "openrouter-spawnclaude",
+  codex: "openrouter-spawncodex",
+  openclaw: "openrouter-spawnopenclaw",
+  opencode: "openrouter-spawnopencode",
+  kilocode: "openrouter-spawnkilocode",
+  hermes: "openrouter-spawnhermes",
+  junie: "openrouter-spawnjunie",
+};
+
+/** Resolve DO marketplace slug for an agent, honoring opt-out flags. */
+export function resolveMarketplaceImageSlug(agentName: string): string | undefined {
+  if (process.env.SPAWN_DO_FORCE_UBUNTU === "1") {
+    return undefined;
+  }
+  const beta = (process.env.SPAWN_BETA ?? "").split(",");
+  if (beta.includes("no-images")) {
+    return undefined;
+  }
+  return MARKETPLACE_IMAGES[agentName];
+}
+
 // ─── Region Options ──────────────────────────────────────────────────────────
 
 interface DoRegion {
