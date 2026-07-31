@@ -30,7 +30,7 @@ describe("resolveMarketplaceImageSlug", () => {
   });
 
   it("returns undefined for unmapped agents", () => {
-    expect(resolveMarketplaceImageSlug("cursor")).toBeUndefined();
+    expect(resolveMarketplaceImageSlug("not-a-real-agent")).toBeUndefined();
   });
 
   it("returns undefined when SPAWN_DO_FORCE_UBUNTU=1", () => {

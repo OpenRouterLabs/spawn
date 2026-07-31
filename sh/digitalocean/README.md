@@ -89,8 +89,11 @@ Spawn uses DigitalOcean 1-click marketplace images when a slug is available. The
 | kilocode | `openrouter-spawnkilocode` |
 | hermes | `openrouter-spawnhermes` |
 | junie | `openrouter-spawnjunie` |
+| cursor | `openrouter-spawncursor` |
+| pi | `openrouter-spawnpi` |
+| t3code | `openrouter-spawnt3code` |
 
-Agents without a marketplace mapping (e.g. `cursor`, `pi`, `t3code`) use Ubuntu 24.04 with cloud-init and a full agent install.
+Agents without a marketplace mapping use Ubuntu 24.04 with cloud-init and a full agent install.
 
 To force a fresh Ubuntu install for testing or E2E:
 
