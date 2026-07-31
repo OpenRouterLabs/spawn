@@ -1056,6 +1056,9 @@ export const MARKETPLACE_IMAGES: Record<string, string> = {
   kilocode: "openrouter-spawnkilocode",
   hermes: "openrouter-spawnhermes",
   junie: "openrouter-spawnjunie",
+  cursor: "openrouter-spawncursor",
+  pi: "openrouter-spawnpi",
+  t3code: "openrouter-spawnt3code",
 };
 
 /** Resolve DO marketplace slug for an agent, honoring opt-out flags. */
