@@ -20,6 +20,7 @@ spawn hermes sandbox
 spawn junie sandbox
 spawn cursor sandbox
 spawn pi sandbox
+spawn t3code sandbox
 ```
 
 Or run directly without the CLI:
@@ -34,6 +35,7 @@ bash <(curl -fsSL https://openrouter.ai/labs/spawn/sandbox/hermes.sh)
 bash <(curl -fsSL https://openrouter.ai/labs/spawn/sandbox/junie.sh)
 bash <(curl -fsSL https://openrouter.ai/labs/spawn/sandbox/cursor.sh)
 bash <(curl -fsSL https://openrouter.ai/labs/spawn/sandbox/pi.sh)
+bash <(curl -fsSL https://openrouter.ai/labs/spawn/sandbox/t3code.sh)
 ```
 
 ## Requirements
@@ -53,5 +55,5 @@ The `sandbox` cloud reuses the `local` orchestrator with a Docker-wrapped runner
 
 ## Notes
 
-- Agents that need a Docker image: `claude`, `codex`, `cursor`, `hermes`, `junie`, `kilocode`, `openclaw`, `opencode`, `pi`. The container images are built from `sh/docker/<agent>.Dockerfile`.
+- Agents that need a Docker image: `claude`, `codex`, `cursor`, `hermes`, `junie`, `kilocode`, `openclaw`, `opencode`, `pi`, `t3code`. The container images are built from `sh/docker/<agent>.Dockerfile`.
 - For host-native execution (no container), use the [`local`](../local/README.md) cloud instead.
