@@ -1,5 +1,8 @@
 # Spawn
 
+> [!WARNING]
+> **Spawn is deprecated and no longer maintained.** The nightly agent tarballs, Docker images and DigitalOcean snapshots are no longer rebuilt, so the CLI uses the last ones published. Existing installs keep working, but expect no fixes, new agents or new clouds.
+
 Launch any AI agent on any cloud with a single command. Coding agents, research agents, self-hosted AI tools — Spawn deploys them all. All models powered by [OpenRouter](https://openrouter.ai). (ALPHA software, use at your own risk!)
 
 **10 agents. 8 clouds. 79 working combinations. Zero config.**
